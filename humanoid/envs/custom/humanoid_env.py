@@ -38,6 +38,7 @@ from humanoid.envs import LeggedRobot
 
 from humanoid.utils.terrain import  HumanoidTerrain
 
+# add test code for git
 
 class XBotLFreeEnv(LeggedRobot):
     '''
