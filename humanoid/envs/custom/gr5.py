@@ -157,12 +157,12 @@ class GR(LeggedRobot):
         sin_pos_l[sin_pos_l > 0] = 0
         self.ref_dof_pos[:, 2] = sin_pos_l * scale_1 + self.cfg.init_state.default_joint_angles['left_hip_pitch_joint']
         self.ref_dof_pos[:, 3] = -sin_pos_l * scale_2 + self.cfg.init_state.default_joint_angles['left_knee_pitch_joint']
-        self.ref_dof_pos[:, 4] = sin_pos_l * scale_3 + self.cfg.init_state.default_joint_angles['left_ankle_pitch_joint']
+        # self.ref_dof_pos[:, 4] = sin_pos_l * scale_3 + self.cfg.init_state.default_joint_angles['left_ankle_pitch_joint']
         # right foot stance phase set to default joint pos
         sin_pos_r[sin_pos_r < 0] = 0
         self.ref_dof_pos[:, 7] = -sin_pos_r * scale_1 + self.cfg.init_state.default_joint_angles['right_hip_pitch_joint']
         self.ref_dof_pos[:, 8] = sin_pos_r * scale_2 + self.cfg.init_state.default_joint_angles['right_knee_pitch_joint']
-        self.ref_dof_pos[:, 9] = -sin_pos_r * scale_3 + self.cfg.init_state.default_joint_angles['right_ankle_pitch_joint']
+        # self.ref_dof_pos[:, 9] = -sin_pos_r * scale_3 + self.cfg.init_state.default_joint_angles['right_ankle_pitch_joint']
         # Double support phase
         self.ref_dof_pos[torch.abs(sin_pos) < 0.1] = self.default_dof_pos
 
@@ -601,10 +601,10 @@ class GR(LeggedRobot):
         """
         joint_diff = self.dof_pos - self.default_joint_pd_target
         left_roll = joint_diff[:,0]
-        right_roll = joint_diff[:,6]
+        right_roll = joint_diff[:,5]
         yaw_roll = torch.norm(left_roll, dim=0) + torch.norm(right_roll, dim=0)
         yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
-        return torch.exp(-yaw_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)
+        return torch.exp(-yaw_roll * 30) - 0.01 * torch.norm(joint_diff, dim=1)
 
     def _reward_default_joint_yaw_pos(self):
         """
@@ -613,10 +613,10 @@ class GR(LeggedRobot):
         """
         joint_diff = self.dof_pos - self.default_joint_pd_target
         left_yaw = joint_diff[:,1]
-        right_yaw = joint_diff[:,7]
+        right_yaw = joint_diff[:,6]
         yaw_roll = torch.norm(left_yaw, dim=0) + torch.norm(right_yaw, dim=0)
         yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
-        return torch.exp(-yaw_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)
+        return torch.exp(-yaw_roll * 30) - 0.01 * torch.norm(joint_diff, dim=1)
 
 
     def _reward_base_height(self):
@@ -982,6 +982,7 @@ class GR(LeggedRobot):
     def _reward_peroid_force(self):
         contact_mask = self.contact_forces[:, self.feet_indices, 2] > 10
         stance_mask = self._get_gait_phase()
+
         # actual_mask = contact_mask == stance_mask
         reward = torch.sum(torch.where(contact_mask == stance_mask, 0.5, -1.0), dim=1)
         return reward

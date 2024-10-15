@@ -43,18 +43,18 @@ def plot_all_groups(data):
     # 分别绘制每一组数据
     plot_group(data, 0, 2, 'Right Leg Phase and Left Leg Phase (0-1)')
     plot_group(data, 2, 5, 'Command Velocities (2-4)')
-    plot_group(data, 5, 11, 'Left Joint Positions (5-11)')
-    plot_group(data, 11, 17, 'Right Joint Positions (11-17)')
+    plot_group(data, 5, 10, 'Left Joint Positions (5-10)')
+    plot_group(data, 10, 15, 'Right Joint Positions (10-15)')
 
-    plot_group(data, 17, 23, 'Left Joint Velocities (17-23)')
-    plot_group(data, 23, 29, 'Right Joint Velocities (23-29)')
+    plot_group(data, 15, 20, 'Left Joint Velocities (15-20)')
+    plot_group(data, 20, 25, 'Right Joint Velocities (20-25)')
 
-    plot_group(data, 29, 32, 'Angular Velocities (29-32)')
-    plot_group(data, 32, 35, 'Euler Angles (32-35)')
+    plot_group(data, 25, 28, 'Angular Velocities (25-28)')
+    plot_group(data, 28, 31, 'Euler Angles (28-31)')
     # plot_group(data, 35, 47, 'Actions (35-47)')
 
-    plot_group(data, 35, 41, 'Actions (35-39)')
-    plot_group(data, 41, 47, 'Actions (41-45)')
+    plot_group(data, 31, 36, 'Actions (31-36)')
+    plot_group(data, 36, 41, 'Actions (36-41)')
     # plt.show()
 
 # 文件路径

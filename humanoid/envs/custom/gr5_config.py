@@ -108,7 +108,7 @@ class GRCfg(LeggedRobotCfg):
             height_measurements = 0.1
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.92]
+        pos = [0.0, 0.0, 0.87]
 
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             'left_hip_roll_joint': 0.0,
@@ -204,7 +204,7 @@ class GRCfg(LeggedRobotCfg):
 
     class commands(LeggedRobotCfg.commands):
         # Vers: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
-        step_joint_offset = 0.12  # rad
+        step_joint_offset = 0.17  # rad
         step_freq = 1.5625  # HZ （e.g. cycle-time=0.66）
 
         num_commands = 4
@@ -218,13 +218,13 @@ class GRCfg(LeggedRobotCfg):
             heading = [-0.0, 0.0]
 
     class rewards:
-        base_height_target = 0.87
+        base_height_target = 0.85
         min_dist = 0.25
         max_dist = 0.5
         # put some settings here for LLM parameter tuning
         target_joint_pos_scale = 0.17    # rad
         target_feet_height = 0.02        # m
-        cycle_time = 0.6                  # sec
+        cycle_time = 0.64                  # sec
         swing_time = 0.5 * cycle_time
         # if true negative total rewards are clipped at zero (avoids early termination problems)
         only_positive_rewards = True
@@ -260,8 +260,9 @@ class GRCfg(LeggedRobotCfg):
             low_speed = 0.2
             track_vel_hard = 0.5
             # base pos
-            default_joint_pos = 1.6
-            # default_joint_roll_pos = 0.8
+            # default_joint_pos = 2.
+            default_joint_roll_pos = 1.2
+            default_joint_yaw_pos = 1.2
             orientation = 2.
             base_height = 0.2
             base_acc = 0.2
@@ -312,7 +313,7 @@ class GRCfgPPO(LeggedRobotCfgPPO):
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
         num_steps_per_env = 60  # per iteration
-        max_iterations = 20001  # number of policy updates
+        max_iterations = 3001  # number of policy updates
 
         # logging
         save_interval = 100  # Please check for potential savings every `save_interval` iterations.

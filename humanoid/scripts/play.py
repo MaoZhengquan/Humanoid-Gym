@@ -48,7 +48,7 @@ from datetime import datetime
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
-    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 1)
+    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 10)
     env_cfg.sim.max_gpu_contact_pairs = 2**10
     # env_cfg.terrain.mesh_type = 'trimesh'
     env_cfg.terrain.mesh_type = 'plane'
@@ -102,22 +102,22 @@ def play(args):
             gymapi.Transform(camera_offset, camera_rotation),
             gymapi.FOLLOW_POSITION)
 
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        video_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos')
-        experiment_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos', train_cfg.runner.experiment_name)
-        dir = os.path.join(experiment_dir, datetime.now().strftime('%b%d_%H-%M-%S')+ args.run_name + '.mp4')
-        if not os.path.exists(video_dir):
-            os.mkdir(video_dir)
-        if not os.path.exists(experiment_dir):
-            os.mkdir(experiment_dir)
-        video = cv2.VideoWriter(dir, fourcc, 50.0, (1920, 1080))
+        # fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        # video_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos')
+        # experiment_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos', train_cfg.runner.experiment_name)
+        # dir = os.path.join(experiment_dir, datetime.now().strftime('%b%d_%H-%M-%S')+ args.run_name + '.mp4')
+        # if not os.path.exists(video_dir):
+        #     os.mkdir(video_dir)
+        # if not os.path.exists(experiment_dir):
+        #     os.mkdir(experiment_dir)
+        # video = cv2.VideoWriter(dir, fourcc, 50.0, (1920, 1080))
 
     for i in tqdm(range(stop_state_log)):
 
         actions = policy(obs.detach()) # * 0.
         
         if FIX_COMMAND:
-            env.commands[:, 0] = 0.5    # 1.0
+            env.commands[:, 0] = 0.0    # 1.0
             env.commands[:, 1] = 0.
             env.commands[:, 2] = 0.
             env.commands[:, 3] = 0.
@@ -131,7 +131,7 @@ def play(args):
             img = env.gym.get_camera_image(env.sim, env.envs[0], h1, gymapi.IMAGE_COLOR)
             img = np.reshape(img, (1080, 1920, 4))
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-            video.write(img[..., :3])
+            # video.write(img[..., :3])
 
         logger.log_states(
             {

@@ -124,6 +124,7 @@ def run_mujoco(policy, cfg):
     for index, value in enumerate(cfg.init_state.default_joint_angles.values()):
         action_startup[index] = value * (1 // cfg.control.action_scale)
         default_joint_pos[index] = value
+    print(data.qpos)
     data.qpos[7:] = default_joint_pos[:]
 
     target_q = np.zeros((cfg.env.num_actions), dtype=np.double)
@@ -168,11 +169,11 @@ def run_mujoco(policy, cfg):
             obs[0, 2] = cmd.vx * cfg.normalization.obs_scales.lin_vel
             obs[0, 3] = cmd.vy * cfg.normalization.obs_scales.lin_vel
             obs[0, 4] = cmd.dyaw * cfg.normalization.obs_scales.ang_vel
-            obs[0, 5:17] = (q- default_joint_pos) * cfg.normalization.obs_scales.dof_pos
-            obs[0, 17:29] = dq * cfg.normalization.obs_scales.dof_vel
-            obs[0, 29:32] = omega
-            obs[0, 32:35] = eu_ang
-            obs[0, 35:47] = action
+            obs[0, 5:15] = (q- default_joint_pos) * cfg.normalization.obs_scales.dof_pos
+            obs[0, 15:25] = dq * cfg.normalization.obs_scales.dof_vel
+            obs[0, 25:28] = omega
+            obs[0, 28:31] = eu_ang
+            obs[0, 31:41] = action
             record_obs_to_csv(obs)
             obs = np.clip(obs, -cfg.normalization.clip_observations, cfg.normalization.clip_observations)
 
@@ -254,16 +255,16 @@ if __name__ == '__main__':
                 mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/gr1t1/mjcf/gr1t1-terrain.xml'
             else:
                 # mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/XBot/mjcf/XBot-L.xml'
-                mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/gr1t1/mjcf/GR1T1_inspire_hand.xml'
+                mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/gr1t1/mjcf/GR1T1_5DoF.xml'
                 print("mujoco_model_path",mujoco_model_path)
             sim_duration = 60.0
-            dt = 0.002
-            decimation = 5
+            dt = 0.005
+            decimation = 4
 
         class robot_config:
-            kps = np.array([250, 250, 350, 350, 20, 2, 250, 250, 350, 350, 20, 2], dtype=np.double)
-            kds = np.array([15, 15, 20, 20, 2, 0.2,15, 15, 20, 20, 2, 0.2], dtype=np.double)
-            tau_limit = np.array([80,100,130,130,8,8,80,100,130,130,8,8], dtype=np.double)
+            kps = np.array([250, 250, 350, 350, 20, 250, 250, 350, 350, 20], dtype=np.double)
+            kds = np.array([15, 15, 20, 20, 2,15, 15, 20, 20, 2], dtype=np.double)
+            tau_limit = np.array([80,100,130,130,8,80,100,130,130,8], dtype=np.double)
 
     policy = torch.jit.load(args.load_model)
     run_mujoco(policy, Sim2simCfg())

@@ -1,0 +1,221 @@
+digraph G {
+node [shape=box];
+"base_link" [label="base_link"];
+"IMU_link" [label="IMU_link"];
+"left_thigh_roll_link" [label="left_thigh_roll_link"];
+"left_thigh_yaw_link" [label="left_thigh_yaw_link"];
+"left_thigh_pitch_link" [label="left_thigh_pitch_link"];
+"left_shank_pitch_link" [label="left_shank_pitch_link"];
+"left_foot_pitch_link" [label="left_foot_pitch_link"];
+"left_foot_roll_link" [label="left_foot_roll_link"];
+"right_thigh_roll_link" [label="right_thigh_roll_link"];
+"right_thigh_yaw_link" [label="right_thigh_yaw_link"];
+"right_thigh_pitch_link" [label="right_thigh_pitch_link"];
+"right_shank_pitch_link" [label="right_shank_pitch_link"];
+"right_foot_pitch_link" [label="right_foot_pitch_link"];
+"right_foot_roll_link" [label="right_foot_roll_link"];
+"waist_yaw_link" [label="waist_yaw_link"];
+"waist_pitch_link" [label="waist_pitch_link"];
+"waist_roll_link" [label="waist_roll_link"];
+"torso_link" [label="torso_link"];
+"head_yaw_link" [label="head_yaw_link"];
+"head_roll_link" [label="head_roll_link"];
+"head_pitch_link" [label="head_pitch_link"];
+"left_upper_arm_pitch_link" [label="left_upper_arm_pitch_link"];
+"left_upper_arm_roll_link" [label="left_upper_arm_roll_link"];
+"left_upper_arm_yaw_link" [label="left_upper_arm_yaw_link"];
+"left_lower_arm_pitch_link" [label="left_lower_arm_pitch_link"];
+"left_hand_yaw_link" [label="left_hand_yaw_link"];
+"left_hand_roll_link" [label="left_hand_roll_link"];
+"left_hand_pitch_link" [label="left_hand_pitch_link"];
+"left_end_effector_link" [label="left_end_effector_link"];
+"L_hand_base_link" [label="L_hand_base_link"];
+"L_index_proximal" [label="L_index_proximal"];
+"L_index_intermediate" [label="L_index_intermediate"];
+"L_index_tip" [label="L_index_tip"];
+"L_middle_proximal" [label="L_middle_proximal"];
+"L_middle_intermediate" [label="L_middle_intermediate"];
+"L_middle_tip" [label="L_middle_tip"];
+"L_pinky_proximal" [label="L_pinky_proximal"];
+"L_pinky_intermediate" [label="L_pinky_intermediate"];
+"L_pinky_tip" [label="L_pinky_tip"];
+"L_ring_proximal" [label="L_ring_proximal"];
+"L_ring_intermediate" [label="L_ring_intermediate"];
+"L_ring_tip" [label="L_ring_tip"];
+"L_thumb_proximal_base" [label="L_thumb_proximal_base"];
+"L_thumb_proximal" [label="L_thumb_proximal"];
+"L_thumb_intermediate" [label="L_thumb_intermediate"];
+"L_thumb_distal" [label="L_thumb_distal"];
+"L_thumb_tip" [label="L_thumb_tip"];
+"right_upper_arm_pitch_link" [label="right_upper_arm_pitch_link"];
+"right_upper_arm_roll_link" [label="right_upper_arm_roll_link"];
+"right_upper_arm_yaw_link" [label="right_upper_arm_yaw_link"];
+"right_lower_arm_pitch_link" [label="right_lower_arm_pitch_link"];
+"right_hand_yaw_link" [label="right_hand_yaw_link"];
+"right_hand_roll_link" [label="right_hand_roll_link"];
+"right_hand_pitch_link" [label="right_hand_pitch_link"];
+"right_end_effector_link" [label="right_end_effector_link"];
+"R_hand_base_link" [label="R_hand_base_link"];
+"R_index_proximal" [label="R_index_proximal"];
+"R_index_intermediate" [label="R_index_intermediate"];
+"R_index_tip" [label="R_index_tip"];
+"R_middle_proximal" [label="R_middle_proximal"];
+"R_middle_intermediate" [label="R_middle_intermediate"];
+"R_middle_tip" [label="R_middle_tip"];
+"R_pinky_proximal" [label="R_pinky_proximal"];
+"R_pinky_intermediate" [label="R_pinky_intermediate"];
+"R_pinky_tip" [label="R_pinky_tip"];
+"R_ring_proximal" [label="R_ring_proximal"];
+"R_ring_intermediate" [label="R_ring_intermediate"];
+"R_ring_tip" [label="R_ring_tip"];
+"R_thumb_proximal_base" [label="R_thumb_proximal_base"];
+"R_thumb_proximal" [label="R_thumb_proximal"];
+"R_thumb_intermediate" [label="R_thumb_intermediate"];
+"R_thumb_distal" [label="R_thumb_distal"];
+"R_thumb_tip" [label="R_thumb_tip"];
+node [shape=ellipse, color=blue, fontcolor=blue];
+"base_link" -> "IMU_joint" [label="xyz: -0.064772 0 -0.0596 \nrpy: 0 -0 0"]
+"IMU_joint" -> "IMU_link"
+"base_link" -> "left_hip_roll_joint" [label="xyz: -0.0025 0.105 -0.0276 \nrpy: 0 -0 0"]
+"left_hip_roll_joint" -> "left_thigh_roll_link"
+"left_thigh_roll_link" -> "left_hip_yaw_joint" [label="xyz: 0 0 0 \nrpy: 0 -0 0"]
+"left_hip_yaw_joint" -> "left_thigh_yaw_link"
+"left_thigh_yaw_link" -> "left_hip_pitch_joint" [label="xyz: 0 0.0223 -0.1405 \nrpy: 0 -0 0"]
+"left_hip_pitch_joint" -> "left_thigh_pitch_link"
+"left_thigh_pitch_link" -> "left_knee_pitch_joint" [label="xyz: 0 -0.0213 -0.36 \nrpy: 0 -0 0"]
+"left_knee_pitch_joint" -> "left_shank_pitch_link"
+"left_shank_pitch_link" -> "left_ankle_pitch_joint" [label="xyz: 0 0 -0.34 \nrpy: 0 -0 0"]
+"left_ankle_pitch_joint" -> "left_foot_pitch_link"
+"left_foot_pitch_link" -> "left_ankle_roll_joint" [label="xyz: 0 0 0 \nrpy: 0 -0 0"]
+"left_ankle_roll_joint" -> "left_foot_roll_link"
+"base_link" -> "right_hip_roll_joint" [label="xyz: -0.0025 -0.105 -0.0276 \nrpy: 0 -0 0"]
+"right_hip_roll_joint" -> "right_thigh_roll_link"
+"right_thigh_roll_link" -> "right_hip_yaw_joint" [label="xyz: 0 0 0 \nrpy: 0 -0 0"]
+"right_hip_yaw_joint" -> "right_thigh_yaw_link"
+"right_thigh_yaw_link" -> "right_hip_pitch_joint" [label="xyz: 0 -0.0223 -0.1405 \nrpy: 0 -0 0"]
+"right_hip_pitch_joint" -> "right_thigh_pitch_link"
+"right_thigh_pitch_link" -> "right_knee_pitch_joint" [label="xyz: 0 0.0213 -0.36 \nrpy: 0 -0 0"]
+"right_knee_pitch_joint" -> "right_shank_pitch_link"
+"right_shank_pitch_link" -> "right_ankle_pitch_joint" [label="xyz: 0 0 -0.34 \nrpy: 0 -0 0"]
+"right_ankle_pitch_joint" -> "right_foot_pitch_link"
+"right_foot_pitch_link" -> "right_ankle_roll_joint" [label="xyz: 0 0 0 \nrpy: 0 -0 0"]
+"right_ankle_roll_joint" -> "right_foot_roll_link"
+"base_link" -> "waist_yaw_joint" [label="xyz: 0 0 0 \nrpy: 0 -0 0"]
+"waist_yaw_joint" -> "waist_yaw_link"
+"waist_yaw_link" -> "waist_pitch_joint" [label="xyz: 0 0 0.0873 \nrpy: 0 -0 0"]
+"waist_pitch_joint" -> "waist_pitch_link"
+"waist_pitch_link" -> "waist_roll_joint" [label="xyz: 0 0 0.081 \nrpy: 0 -0 0"]
+"waist_roll_joint" -> "waist_roll_link"
+"waist_roll_link" -> "torso_joint" [label="xyz: -0.00414 0 0.16071 \nrpy: 0 -0 0"]
+"torso_joint" -> "torso_link"
+"torso_link" -> "head_yaw_joint" [label="xyz: 0 0 0.17339 \nrpy: 0 -0 0"]
+"head_yaw_joint" -> "head_yaw_link"
+"head_yaw_link" -> "head_roll_joint" [label="xyz: 0 -0.00105 0.14195 \nrpy: 0 -0 0"]
+"head_roll_joint" -> "head_roll_link"
+"head_roll_link" -> "head_pitch_joint" [label="xyz: 0 0 0 \nrpy: 0 -0 0"]
+"head_pitch_joint" -> "head_pitch_link"
+"torso_link" -> "left_shoulder_pitch_joint" [label="xyz: 0 0.10111 0.047149 \nrpy: 0.43633 -0 0"]
+"left_shoulder_pitch_joint" -> "left_upper_arm_pitch_link"
+"left_upper_arm_pitch_link" -> "left_shoulder_roll_joint" [label="xyz: 0 0.09515 0 \nrpy: -0.15 0 0"]
+"left_shoulder_roll_joint" -> "left_upper_arm_roll_link"
+"left_upper_arm_roll_link" -> "left_shoulder_yaw_joint" [label="xyz: 0 0.04 -0.07095 \nrpy: 0 -0 0"]
+"left_shoulder_yaw_joint" -> "left_upper_arm_yaw_link"
+"left_upper_arm_yaw_link" -> "left_elbow_pitch_joint" [label="xyz: 0 0 -0.1751 \nrpy: 0 -0 0"]
+"left_elbow_pitch_joint" -> "left_lower_arm_pitch_link"
+"left_lower_arm_pitch_link" -> "left_wrist_yaw_joint" [label="xyz: 0 5.033e-05 -0.05395 \nrpy: 0 -0 0"]
+"left_wrist_yaw_joint" -> "left_hand_yaw_link"
+"left_hand_yaw_link" -> "left_wrist_roll_link" [label="xyz: 0 0 -0.18765 \nrpy: 0 -0 0"]
+"left_wrist_roll_link" -> "left_hand_roll_link"
+"left_hand_roll_link" -> "left_wrist_pitch_joint" [label="xyz: 0 0 0 \nrpy: 0 -0 0"]
+"left_wrist_pitch_joint" -> "left_hand_pitch_link"
+"left_hand_pitch_link" -> "left_end_effector_joint" [label="xyz: 0 0 0 \nrpy: 0 -0 0"]
+"left_end_effector_joint" -> "left_end_effector_link"
+"left_end_effector_link" -> "L_base_link_joint" [label="xyz: 0 0 -0.022 \nrpy: 0 -0 0"]
+"L_base_link_joint" -> "L_hand_base_link"
+"L_hand_base_link" -> "L_index_proximal_joint" [label="xyz: 0.032268 0.00028533 -0.13653 \nrpy: 1.5708 -0.034907 1.5708"]
+"L_index_proximal_joint" -> "L_index_proximal"
+"L_index_proximal" -> "L_index_intermediate_joint" [label="xyz: -0.0024229 -0.032041 -0.001 \nrpy: 0 -0 0"]
+"L_index_intermediate_joint" -> "L_index_intermediate"
+"L_index_intermediate" -> "L_index_tip_joint" [label="xyz: -0.005 -0.04 -0.004 \nrpy: 0 -0 0"]
+"L_index_tip_joint" -> "L_index_tip"
+"L_hand_base_link" -> "L_middle_proximal_joint" [label="xyz: 0.01295 0.00028533 -0.1371 \nrpy: 1.5708 -0 1.5708"]
+"L_middle_proximal_joint" -> "L_middle_proximal"
+"L_middle_proximal" -> "L_middle_intermediate_joint" [label="xyz: -0.0024229 -0.032041 -0.001 \nrpy: 0 -0 0"]
+"L_middle_intermediate_joint" -> "L_middle_intermediate"
+"L_middle_intermediate" -> "L_middle_tip_joint" [label="xyz: -0.005 -0.045 -0.004 \nrpy: 0 -0 0"]
+"L_middle_tip_joint" -> "L_middle_tip"
+"L_hand_base_link" -> "L_pinky_proximal_joint" [label="xyz: -0.025488 0.00028533 -0.13571 \nrpy: 1.5708 0.10472 1.5708"]
+"L_pinky_proximal_joint" -> "L_pinky_proximal"
+"L_pinky_proximal" -> "L_pinky_intermediate_joint" [label="xyz: -0.0024229 -0.032041 -0.001 \nrpy: 0 -0 0"]
+"L_pinky_intermediate_joint" -> "L_pinky_intermediate"
+"L_pinky_intermediate" -> "L_pinky_tip_joint" [label="xyz: -0.002 -0.032 -0.004 \nrpy: 0 -0 0"]
+"L_pinky_tip_joint" -> "L_pinky_tip"
+"L_hand_base_link" -> "L_ring_proximal_joint" [label="xyz: -0.0062872 0.00028533 -0.13691 \nrpy: 1.5708 0.05236 1.5708"]
+"L_ring_proximal_joint" -> "L_ring_proximal"
+"L_ring_proximal" -> "L_ring_intermediate_joint" [label="xyz: -0.0024229 -0.032041 -0.001 \nrpy: 0 -0 0"]
+"L_ring_intermediate_joint" -> "L_ring_intermediate"
+"L_ring_intermediate" -> "L_ring_tip_joint" [label="xyz: -0.002 -0.04 -0.004 \nrpy: 0 -0 0"]
+"L_ring_tip_joint" -> "L_ring_tip"
+"L_hand_base_link" -> "L_thumb_proximal_yaw_joint" [label="xyz: 0.02045 -0.01696 -0.0691 \nrpy: 3.14 -0 0"]
+"L_thumb_proximal_yaw_joint" -> "L_thumb_proximal_base"
+"L_thumb_proximal_base" -> "L_thumb_proximal_pitch_joint" [label="xyz: 0.0099867 0.0098242 -0.0089 \nrpy: -1.5708 -0 0.16939"]
+"L_thumb_proximal_pitch_joint" -> "L_thumb_proximal"
+"L_thumb_proximal" -> "L_thumb_intermediate_joint" [label="xyz: 0.04407 -0.034553 -0.0008 \nrpy: 0 -0 0"]
+"L_thumb_intermediate_joint" -> "L_thumb_intermediate"
+"L_thumb_intermediate" -> "L_thumb_distal_joint" [label="xyz: 0.020248 -0.010156 -0.0012 \nrpy: 0 -0 0"]
+"L_thumb_distal_joint" -> "L_thumb_distal"
+"L_thumb_distal" -> "L_thumb_tip_joint" [label="xyz: 0.015 -0.013 -0.004 \nrpy: 0 -0 0"]
+"L_thumb_tip_joint" -> "L_thumb_tip"
+"torso_link" -> "right_shoulder_pitch_joint" [label="xyz: 0 -0.10111 0.047149 \nrpy: -0.43633 0 0"]
+"right_shoulder_pitch_joint" -> "right_upper_arm_pitch_link"
+"right_upper_arm_pitch_link" -> "right_shoulder_roll_joint" [label="xyz: 0 -0.09515 0 \nrpy: 0.15 -0 0"]
+"right_shoulder_roll_joint" -> "right_upper_arm_roll_link"
+"right_upper_arm_roll_link" -> "right_shoulder_yaw_joint" [label="xyz: 0 -0.04 -0.07095 \nrpy: 0 -0 0"]
+"right_shoulder_yaw_joint" -> "right_upper_arm_yaw_link"
+"right_upper_arm_yaw_link" -> "right_elbow_pitch_joint" [label="xyz: 0 0 -0.1751 \nrpy: 0 -0 0"]
+"right_elbow_pitch_joint" -> "right_lower_arm_pitch_link"
+"right_lower_arm_pitch_link" -> "right_wrist_yaw_joint" [label="xyz: 0 -5.033e-05 -0.05395 \nrpy: 0 -0 0"]
+"right_wrist_yaw_joint" -> "right_hand_yaw_link"
+"right_hand_yaw_link" -> "right_wrist_roll_joint" [label="xyz: 0 0 -0.18765 \nrpy: 0 -0 0"]
+"right_wrist_roll_joint" -> "right_hand_roll_link"
+"right_hand_roll_link" -> "right_wrist_pitch_joint" [label="xyz: 0 0 0 \nrpy: 0 -0 0"]
+"right_wrist_pitch_joint" -> "right_hand_pitch_link"
+"right_hand_pitch_link" -> "right_end_effector_joint" [label="xyz: 0 0 0 \nrpy: 0 -0 0"]
+"right_end_effector_joint" -> "right_end_effector_link"
+"right_end_effector_link" -> "R_base_link_joint" [label="xyz: 0 0 -0.022 \nrpy: 0 -0 0"]
+"R_base_link_joint" -> "R_hand_base_link"
+"R_hand_base_link" -> "R_index_proximal_joint" [label="xyz: 0.032268 0.00028533 -0.13653 \nrpy: -1.5359 -0 -1.5708"]
+"R_index_proximal_joint" -> "R_index_proximal"
+"R_index_proximal" -> "R_index_intermediate_joint" [label="xyz: -0.0026138 0.032026 -0.001 \nrpy: 0 -0 0"]
+"R_index_intermediate_joint" -> "R_index_intermediate"
+"R_index_intermediate" -> "R_index_tip_joint" [label="xyz: -0.005 0.04 -0.004 \nrpy: 0 -0 0"]
+"R_index_tip_joint" -> "R_index_tip"
+"R_hand_base_link" -> "R_middle_proximal_joint" [label="xyz: 0.01295 0.00028533 -0.1371 \nrpy: -1.5708 -0 -1.5708"]
+"R_middle_proximal_joint" -> "R_middle_proximal"
+"R_middle_proximal" -> "R_middle_intermediate_joint" [label="xyz: -0.0024229 0.032041 -0.001 \nrpy: 0 -0 0"]
+"R_middle_intermediate_joint" -> "R_middle_intermediate"
+"R_middle_intermediate" -> "R_middle_tip_joint" [label="xyz: -0.005 0.045 -0.004 \nrpy: 0 -0 0"]
+"R_middle_tip_joint" -> "R_middle_tip"
+"R_hand_base_link" -> "R_pinky_proximal_joint" [label="xyz: -0.025488 0.00028533 -0.13571 \nrpy: -1.6739 -5.55112e-17 -1.5708"]
+"R_pinky_proximal_joint" -> "R_pinky_proximal"
+"R_pinky_proximal" -> "R_pinky_intermediate_joint" [label="xyz: -0.0024229 0.032041 -0.001 \nrpy: 0 -0 0"]
+"R_pinky_intermediate_joint" -> "R_pinky_intermediate"
+"R_pinky_intermediate" -> "R_pinky_tip_joint" [label="xyz: -0.002 0.032 -0.004 \nrpy: 0 -0 0"]
+"R_pinky_tip_joint" -> "R_pinky_tip"
+"R_hand_base_link" -> "R_ring_proximal_joint" [label="xyz: -0.0062872 0.00028533 -0.13691 \nrpy: -1.6232 -5.55112e-17 -1.5708"]
+"R_ring_proximal_joint" -> "R_ring_proximal"
+"R_ring_proximal" -> "R_ring_intermediate_joint" [label="xyz: -0.0024229 0.032041 -0.001 \nrpy: 0 -0 0"]
+"R_ring_intermediate_joint" -> "R_ring_intermediate"
+"R_ring_intermediate" -> "R_ring_tip_joint" [label="xyz: -0.002 0.04 -0.004 \nrpy: 0 -0 0"]
+"R_ring_tip_joint" -> "R_ring_tip"
+"R_hand_base_link" -> "R_thumb_proximal_yaw_joint" [label="xyz: 0.02045 0.01696 -0.0691 \nrpy: 3.14159 -7.34641e-06 3.14159"]
+"R_thumb_proximal_yaw_joint" -> "R_thumb_proximal_base"
+"R_thumb_proximal_base" -> "R_thumb_proximal_pitch_joint" [label="xyz: -0.0088099 0.010892 -0.00925 \nrpy: 1.5708 -0 2.8587"]
+"R_thumb_proximal_pitch_joint" -> "R_thumb_proximal"
+"R_thumb_proximal" -> "R_thumb_intermediate_joint" [label="xyz: 0.04407 0.034553 -0.0008 \nrpy: 0 -0 0"]
+"R_thumb_intermediate_joint" -> "R_thumb_intermediate"
+"R_thumb_intermediate" -> "R_thumb_distal_joint" [label="xyz: 0.020248 0.010156 -0.0012 \nrpy: 0 -0 0"]
+"R_thumb_distal_joint" -> "R_thumb_distal"
+"R_thumb_distal" -> "R_thumb_tip_joint" [label="xyz: 0.015 0.013 -0.004 \nrpy: 0 -0 0"]
+"R_thumb_tip_joint" -> "R_thumb_tip"
+}
