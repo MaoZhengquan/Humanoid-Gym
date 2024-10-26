@@ -1,9 +1,9 @@
 import torch
 import onnx
 # model = torch.jit.load('/home/mao/Github_Project/HIMLoco/legged_gym/logs/rough_gr1t1/exported/policies/policy.pt')
-model = torch.jit.load('/home/mao/Github_Project/humanoid-gym/logs/1014EndWar/exported/policies/policy_1.pt')
+model = torch.jit.load('/home/mao/Github_Project/humanoid-gym/logs/1014EndWar/exported/policies/pretrained_v1.4_motor-12000-jit.pt')
 model.eval()
-dummy_input = torch.rand(1,615)
+dummy_input = torch.rand(1,516)
 torch.onnx.export(
     model,                         # 你的模型
     dummy_input,                   # 示例输入

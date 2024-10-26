@@ -39,14 +39,20 @@ class GRCfg(LeggedRobotCfg):
         # change the observation dim
         frame_stack = 15
         c_frame_stack = 3
+        num_dofs = 12
         num_single_obs = 41
         num_observations = int(frame_stack * num_single_obs)
         single_num_privileged_obs = 164
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
         num_actions = 10
         num_envs = 4096
+
+        history_len = 10
+        n_proprio = 2 + 3 + 3 + 2 + 2 * (num_dofs) + num_actions
+        n_priv_latent = 4 + 1 + 2 * (num_dofs) + 3 #484 32
         queue_len_obs = 4
         queue_len_act = 4
+        control_indices = [0,1,2,3,4,6,7,8,9,10]
         # 系统延迟
         obs_latency = [5, 20]
         act_latency = [5, 20]
@@ -108,7 +114,7 @@ class GRCfg(LeggedRobotCfg):
             height_measurements = 0.1
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.87]
+        pos = [0.0, 0.0, 0.90]
 
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             'left_hip_roll_joint': 0.0,
@@ -116,27 +122,29 @@ class GRCfg(LeggedRobotCfg):
             'left_hip_pitch_joint': -0.4,
             'left_knee_pitch_joint': 0.8,
             'left_ankle_pitch_joint': -0.4,
+            'left_ankle_roll_joint': -0.0,
             'right_hip_roll_joint': -0.0,
             'right_hip_yaw_joint': -0.,
             'right_hip_pitch_joint': -0.4,
             'right_knee_pitch_joint': 0.8,
             'right_ankle_pitch_joint': -0.4,
+            'right_ankle_roll_joint': -0.0,
         }
 
     class control(LeggedRobotCfg.control):
         # PD Drive parameters:
-        stiffness = {'hip_roll': 250, 'hip_yaw': 250, 'hip_pitch': 350,
+        stiffness = {'hip_roll': 200, 'hip_yaw': 200, 'hip_pitch': 350,
             'knee_pitch': 350,'ankle_pitch': 20}
-        damping = {'hip_roll': 15, 'hip_yaw': 15, 'hip_pitch': 20,
-            'knee_pitch': 20,'ankle_pitch': 2}
+        damping = {'hip_roll': 20, 'hip_yaw': 20, 'hip_pitch': 35,
+            'knee_pitch': 35,'ankle_pitch': 2}
 
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
         # decimation: Number of control action updates @ sim DT per policy DT
-        decimation = 4  # 50hz
+        decimation = 10  # 50hz
 
     class sim(LeggedRobotCfg.sim):
-        dt = 0.005  # 200 Hz
+        dt = 0.002  # 200 Hz
         substeps = 1  # 2
         up_axis = 1  # 0 is y, 1 is z
 
@@ -158,7 +166,7 @@ class GRCfg(LeggedRobotCfg):
         dynamic_randomization = 0.1
 
         random_quaternion = True
-        quaternion_range = [-0.05, 0.1]
+        quaternion_range = [-0.1, 0.2]
 
         # randomize friction
         randomize_friction = True
@@ -166,7 +174,7 @@ class GRCfg(LeggedRobotCfg):
 
         # randomize payload
         randomize_body_mass = True
-        added_body_mass_range = [-0.50, 2.0]
+        added_body_mass_range = [-1.50, 2.50]
         added_leg_mass_range = [-0.1, 0.30]
 
         # randomize base center of mass  ok
@@ -176,7 +184,7 @@ class GRCfg(LeggedRobotCfg):
 
         # randomize body_inertia  ok
         randomize_body_inertia = True
-        scaled_body_inertia_range = [0.90, 1.1]  # %5 error
+        scaled_body_inertia_range = [0.85, 1.15]  # %5 error
 
         randomize_thigh_mass = True
         randomize_shank_mass = True
@@ -190,12 +198,12 @@ class GRCfg(LeggedRobotCfg):
 
 
         # randomize external forces ok
-        push_robots = False
+        push_robots = True
         push_interval_s = 5
-        max_push_vel_xy = 1.0
+        max_push_vel_xy = 1.5
         max_push_vel_ang = 0.5
-        push_curriculum_start_step = 10000 * 60
-        push_curriculum_common_step = 30000 * 60
+        push_curriculum_start_step = 500 * 60
+        push_curriculum_common_step = 500 * 60
 
         apply_forces = False
         continue_time_s = 0.5
@@ -212,19 +220,19 @@ class GRCfg(LeggedRobotCfg):
         heading_command = False  # if true: compute ang vel command from heading error
 
         class ranges:
-            lin_vel_x = [-0.3, 0.3]  # min max [m/s]
-            lin_vel_y = [-0.0, 0.0]   # min max [m/s]
-            ang_vel_yaw = [-0.0, 0.0]    # min max [rad/s]
+            lin_vel_x = [-0.6, 0.6]  # min max [m/s]
+            lin_vel_y = [-0.3, 0.3]   # min max [m/s]
+            ang_vel_yaw = [-0.3, 0.3]    # min max [rad/s]
             heading = [-0.0, 0.0]
 
     class rewards:
-        base_height_target = 0.85
-        min_dist = 0.25
-        max_dist = 0.5
+        base_height_target = 0.895
+        min_dist = 0.2
+        max_dist = 0.6
         # put some settings here for LLM parameter tuning
         target_joint_pos_scale = 0.17    # rad
-        target_feet_height = 0.02        # m
-        cycle_time = 0.64                  # sec
+        target_feet_height = 0.05        # m
+        cycle_time = 0.8                  # sec
         swing_time = 0.5 * cycle_time
         # if true negative total rewards are clipped at zero (avoids early termination problems)
         only_positive_rewards = True
@@ -256,13 +264,14 @@ class GRCfg(LeggedRobotCfg):
             # vel tracking
             tracking_lin_vel = 1.2
             tracking_ang_vel = 1.1
-            vel_mismatch_exp = 0.5  # lin_z; ang x,y
-            low_speed = 0.2
-            track_vel_hard = 0.5
+            vel_mismatch_exp = 0.8  # lin_z; ang x,y
+            low_speed = 0.8
+            track_vel_hard = 0.8
             # base pos
-            # default_joint_pos = 2.
-            default_joint_roll_pos = 1.2
-            default_joint_yaw_pos = 1.2
+            default_joint_pos = 1.
+            # target_hip_roll_pos = 1.
+            # default_joint_roll_pos = 1.2
+            # default_joint_yaw_pos = 1.2
             orientation = 2.
             base_height = 0.2
             base_acc = 0.2
@@ -283,10 +292,10 @@ class GRCfg(LeggedRobotCfg):
     class normalization:
         class obs_scales:
             lin_vel = 2.
-            ang_vel = 1.
+            ang_vel = 0.25
             dof_pos = 1.
-            dof_vel = 1.
-            quat = 1.
+            dof_vel = 0.05
+            quat = 0.5
             height_measurements = 5.0
         clip_observations = 50.
         clip_actions = 5.
@@ -320,7 +329,7 @@ class GRCfgPPO(LeggedRobotCfgPPO):
         experiment_name = '1014EndWar'
         run_name = ''
         # Load and resume
-        resume = False
+        resume = True
         load_run = -1  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt

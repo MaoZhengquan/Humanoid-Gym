@@ -44,8 +44,8 @@ import torch
 
 
 class cmd:
-    vx = 0.0
-    vy = 0.0
+    vx = 0.1
+    vy = 0.
     dyaw = 0.0
 
 
@@ -137,7 +137,6 @@ def run_mujoco(policy, cfg):
     count_max_merge = 50
 
     obs = np.zeros([1, cfg.env.num_observations], dtype=np.float32)  # 47
-    total_data = np.zeros((1, 83), dtype=np.float32)  # 47+36
     for i in range(10):
         policy(torch.tensor(obs))[0].detach().numpy()
 
@@ -150,8 +149,8 @@ def run_mujoco(policy, cfg):
 
         cos_pos = (1 - math.cos(2 * math.pi * phase)) / 2  # 得到一条从0开始增加，频率为step_freq，振幅0～1的曲线，接地比较平滑
 
-        right_leg_phase = math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt / 0.64)
-        left_leg_phase =  math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt / 0.64)
+        right_leg_phase = math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt / 0.6)
+        left_leg_phase =  math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt / 0.6)
 
         # Obtain an observation
         q, dq, quat, v, omega, gvec = get_obs(data)
@@ -262,8 +261,8 @@ if __name__ == '__main__':
             decimation = 4
 
         class robot_config:
-            kps = np.array([250, 250, 350, 350, 20, 250, 250, 350, 350, 20], dtype=np.double)
-            kds = np.array([15, 15, 20, 20, 2,15, 15, 20, 20, 2], dtype=np.double)
+            kps = np.array([200, 200, 350, 350, 20, 200, 200, 350, 350, 20], dtype=np.double)
+            kds = np.array([20, 20, 35, 35, 2,20, 20, 35, 35, 2], dtype=np.double)
             tau_limit = np.array([80,100,130,130,8,80,100,130,130,8], dtype=np.double)
 
     policy = torch.jit.load(args.load_model)

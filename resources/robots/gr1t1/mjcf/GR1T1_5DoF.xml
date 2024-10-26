@@ -144,7 +144,7 @@
         <light mode="targetbodycom" target="base_link" pos="2 0 2.5"/>
 	<geom name="ground" type="plane" size="0 0 1" pos="0.001 0 0" quat="1 0 0 0" material="matplane" condim="1" conaffinity='15'/>
 	
-    <body name="base_link" pos="0 0 0.92">
+    <body name="base_link" pos="0 0 0.87">
       <inertial pos="-0.06584 -9.765e-05 -0.01434" quat="0.384085 0.384189 -0.593878 0.593453" mass="3.84" diaginertia="0.0357335 0.0311265 0.01048" />
       <site name='imu' size='0.01' pos='-0.0648 0 -0.1015'/>
       <freejoint/>

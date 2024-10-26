@@ -37,8 +37,12 @@ from .custom.humanoid_config import XBotLCfg, XBotLCfgPPO
 from .custom.humanoid_env import XBotLFreeEnv
 from .custom.gr5 import GR
 from .custom.gr5_config import GRCfg,GRCfgPPO
+from .custom.gr6 import GR6
+from .custom.gr6_config import GR6Cfg,GR6CfgPPO
 from humanoid.utils.task_registry import task_registry
 
 
 task_registry.register( "humanoid_ppo", XBotLFreeEnv, XBotLCfg(), XBotLCfgPPO() )
 task_registry.register( "gr", GR, GRCfg(), GRCfgPPO())
+task_registry.register( "gr6", GR6, GR6Cfg(), GR6CfgPPO())
+

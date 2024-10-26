@@ -139,8 +139,8 @@ class GR(LeggedRobot):
         self.ref_mask[:, 0] = mask_left
         self.ref_mask[:, 1] = mask_right
         scale_1 = self.cfg.commands.step_joint_offset
-        scale_2 = 2 * scale_1
-        scale_3 = 0.5 * scale_1
+        scale_2 = 2. * scale_1
+        scale_3 = 0.2 * scale_1
         self.ref_dof_pos[:, :] = self.default_dof_pos[0, :]
         # right foot stance phase set to default joint pos
         # left foot stance phase set to default joint pos
@@ -157,12 +157,12 @@ class GR(LeggedRobot):
         sin_pos_l[sin_pos_l > 0] = 0
         self.ref_dof_pos[:, 2] = sin_pos_l * scale_1 + self.cfg.init_state.default_joint_angles['left_hip_pitch_joint']
         self.ref_dof_pos[:, 3] = -sin_pos_l * scale_2 + self.cfg.init_state.default_joint_angles['left_knee_pitch_joint']
-        # self.ref_dof_pos[:, 4] = sin_pos_l * scale_3 + self.cfg.init_state.default_joint_angles['left_ankle_pitch_joint']
+        self.ref_dof_pos[:, 4] = sin_pos_l * scale_3 + self.cfg.init_state.default_joint_angles['left_ankle_pitch_joint']
         # right foot stance phase set to default joint pos
         sin_pos_r[sin_pos_r < 0] = 0
         self.ref_dof_pos[:, 7] = -sin_pos_r * scale_1 + self.cfg.init_state.default_joint_angles['right_hip_pitch_joint']
         self.ref_dof_pos[:, 8] = sin_pos_r * scale_2 + self.cfg.init_state.default_joint_angles['right_knee_pitch_joint']
-        # self.ref_dof_pos[:, 9] = -sin_pos_r * scale_3 + self.cfg.init_state.default_joint_angles['right_ankle_pitch_joint']
+        self.ref_dof_pos[:, 9] = -sin_pos_r * scale_3 + self.cfg.init_state.default_joint_angles['right_ankle_pitch_joint']
         # Double support phase
         self.ref_dof_pos[torch.abs(sin_pos) < 0.1] = self.default_dof_pos
 
@@ -603,8 +603,8 @@ class GR(LeggedRobot):
         left_roll = joint_diff[:,0]
         right_roll = joint_diff[:,5]
         yaw_roll = torch.norm(left_roll, dim=0) + torch.norm(right_roll, dim=0)
-        yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
-        return torch.exp(-yaw_roll * 30) - 0.01 * torch.norm(joint_diff, dim=1)
+        yaw_roll = yaw_roll * 0.05
+        return -torch.exp(-yaw_roll)
 
     def _reward_default_joint_yaw_pos(self):
         """
@@ -615,8 +615,8 @@ class GR(LeggedRobot):
         left_yaw = joint_diff[:,1]
         right_yaw = joint_diff[:,6]
         yaw_roll = torch.norm(left_yaw, dim=0) + torch.norm(right_yaw, dim=0)
-        yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
-        return torch.exp(-yaw_roll * 30) - 0.01 * torch.norm(joint_diff, dim=1)
+        yaw_roll = yaw_roll * 0.1
+        return -torch.exp(-yaw_roll)
 
 
     def _reward_base_height(self):
@@ -970,13 +970,19 @@ class GR(LeggedRobot):
         return ankle_imitate_reward
 
     def _reward_target_hip_roll_pos(self):
-        """
-        Calculates the reward for keeping joint positions close to default positions, with a focus
-         on penalizing deviation in yaw and roll directions. Excludes yaw and roll from the main penalty.
-        """
-        diff = torch.abs(self.dof_pos[:, 0] - self.ref_dof_pos[:, 0])
-        diff += torch.abs(self.dof_pos[:, 6] - self.ref_dof_pos[:, 6])
-        roll_imitate_reward = torch.exp(-15 * diff)  # positive reward, not the penalty
+        # 计算大腿roll角度的偏差
+        diff_left = torch.abs(self.dof_pos[:, 0] - self.ref_dof_pos[:, 0])
+        diff_right = torch.abs(self.dof_pos[:, 5] - self.ref_dof_pos[:, 5])
+
+        # 设置角度偏差的阈值为5度 (5 * π / 180)
+        threshold = 5 * torch.pi / 180
+
+        # 如果偏差小于5度，则使用正向奖励
+        roll_imitate_reward_left = torch.where(diff_left < threshold, torch.exp(-15 * diff_left), -diff_left)
+        roll_imitate_reward_right = torch.where(diff_right < threshold, torch.exp(-15 * diff_right), -diff_right)
+
+        # 总的奖励/惩罚
+        roll_imitate_reward = roll_imitate_reward_left + roll_imitate_reward_right
         return roll_imitate_reward
 
     def _reward_peroid_force(self):
