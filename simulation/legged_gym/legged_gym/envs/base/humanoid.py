@@ -51,6 +51,8 @@ from legged_gym.gym_utils.terrain import Terrain
 from legged_gym.gym_utils.math import quat_apply_yaw, wrap_to_pi, torch_rand_sqrt_float
 from legged_gym.gym_utils.helpers import class_to_dict
 from .humanoid_config import HumanoidCfg
+from legged_gym.utils.util_math import *
+
 
 class Humanoid(LeggedRobot):
     def __init__(self, cfg: HumanoidCfg, sim_params, physics_engine, sim_device, headless):
@@ -94,7 +96,9 @@ class Humanoid(LeggedRobot):
 
     def _init_buffers(self):
         super()._init_buffers()
-        
+        self.phase_length_buf = torch.zeros(
+            self.num_envs, device=self.device, dtype=torch.long)
+        self.gait_start = torch.randint(0, 2, (self.num_envs,)).to(self.device)*0.5
         self.feet_force_sum = torch.ones(self.num_envs, 2, device=self.device)
 
     def _create_envs(self):
@@ -232,8 +236,11 @@ class Humanoid(LeggedRobot):
         self.obs_history_buf[env_ids, :, :] = 0.
         self.contact_buf[env_ids, :, :] = 0.
         self.action_history_buf[env_ids, :, :] = 0.
+        self.phase_length_buf[env_ids] = 0
         self.feet_land_time[env_ids] = 0.
         self._reset_buffers_extra(env_ids)
+        self.feet_quat = self.rigid_body_states[:, self.feet_indices, 3:7]
+        self.feet_euler_xyz = get_euler_xyz_tensor(self.feet_quat)
 
         # fill extras
         self.extras["episode"] = {}
@@ -284,7 +291,9 @@ class Humanoid(LeggedRobot):
         self.base_ang_vel[:] = quat_rotate_inverse(self.base_quat, self.root_states[:, 10:13])
         self.projected_gravity[:] = quat_rotate_inverse(self.base_quat, self.gravity_vec)
         self.base_lin_acc = (self.root_states[:, 7:10] - self.last_root_vel[:, :3]) / self.dt
-
+        self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
+        self.feet_quat = self.rigid_body_states[:, self.feet_indices, 3:7]
+        self.feet_euler_xyz = get_euler_xyz_tensor(self.feet_quat)
         self.roll, self.pitch, self.yaw = euler_from_quaternion(self.base_quat)
 
         contact = torch.norm(self.contact_forces[:, self.feet_indices], dim=-1) > 2.
@@ -326,6 +335,7 @@ class Humanoid(LeggedRobot):
             Default behaviour: Compute ang vel command based on target and heading, compute measured terrain heights and randomly push robots
         """
         # 
+        self.phase_length_buf += 1
         env_ids = (self.episode_length_buf % int(self.cfg.commands.resampling_time / self.dt)==0)
         self._resample_commands(env_ids.nonzero(as_tuple=False).flatten())
 
@@ -397,7 +407,12 @@ class Humanoid(LeggedRobot):
 
     def  _get_phase(self):
         cycle_time = self.cfg.rewards.cycle_time
-        phase = self.episode_length_buf * self.dt / cycle_time
+        if self.cfg.commands.sw_switch:
+            stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
+            self.phase_length_buf[stand_command] = 0 # set this as 0 for which env is standing
+            phase = (self.phase_length_buf * self.dt / cycle_time + self.gait_start) * (~stand_command)
+        else:
+            phase = self.episode_length_buf * self.dt / cycle_time
         return phase
     
     def _get_gait_phase(self):
@@ -523,7 +538,15 @@ class Humanoid(LeggedRobot):
         self.commands[env_ids, 0] *= torch.abs(self.commands[env_ids, 0]) > self.cfg.commands.lin_vel_clip
         self.commands[env_ids, 1] *= torch.abs(self.commands[env_ids, 1]) > self.cfg.commands.lin_vel_clip
         self.commands[env_ids, 2] *= torch.abs(self.commands[env_ids, 2]) > self.cfg.commands.ang_vel_clip
-    
+
+    def _resample_stand_command(self, env_ids):
+        self.commands[env_ids, 0] = torch.zeros(len(env_ids), device=self.device)
+        self.commands[env_ids, 1] = torch.zeros(len(env_ids), device=self.device)
+        if self.cfg.commands.heading_command:
+            self.commands[env_ids, 3] = torch.zeros(len(env_ids), device=self.device)
+        else:
+            self.commands[env_ids, 2] = torch.zeros(len(env_ids), device=self.device)
+
     def get_walking_cmd_mask(self, env_ids=None, return_all=False):
         if env_ids is None:
             env_ids = torch.arange(self.num_envs, device=self.device)
@@ -575,8 +598,17 @@ class Humanoid(LeggedRobot):
         return 1.
     
     def _reward_tracking_lin_vel_exp(self):
-        lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
-        return torch.exp(-lin_vel_error/self.cfg.rewards.tracking_sigma)
+        stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
+        # lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        lin_vel_error_square = torch.sum(torch.square(
+            self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        lin_vel_error_abs = torch.sum(torch.abs(
+            self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        r_square = torch.exp(-lin_vel_error_square * self.cfg.rewards.tracking_sigma)
+        r_abs = torch.exp(-lin_vel_error_abs * self.cfg.rewards.tracking_sigma * 2)
+        r = torch.where(stand_command, r_abs, r_square)
+        # r = torch.exp(-lin_vel_error/self.cfg.rewards.tracking_sigma)
+        return r
 
     def _reward_track_vel_hard(self):
         """
@@ -597,9 +629,30 @@ class Humanoid(LeggedRobot):
 
         return (lin_vel_error_exp + ang_vel_error_exp) / 2. - linear_error
 
+    def _reward_vel_mismatch_exp(self):
+        """
+        Computes a reward based on the mismatch in the robot's linear and angular velocities.
+        Encourages the robot to maintain a stable velocity by penalizing large deviations.
+        """
+        lin_mismatch = torch.exp(-torch.square(self.base_lin_vel[:, 2]) * 10)
+        ang_mismatch = torch.exp(-torch.norm(self.base_ang_vel[:, :2], dim=1) * 5.)
+
+        c_update = (lin_mismatch + ang_mismatch) / 2.
+
+        return c_update
+
     def _reward_tracking_ang_vel(self):
-        ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
-        return torch.exp(-ang_vel_error/self.cfg.rewards.tracking_sigma_ang)
+        stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
+        ang_vel_error_square = torch.square(
+            self.commands[:, 2] - self.base_ang_vel[:, 2])
+        ang_vel_error_abs = torch.abs(
+            self.commands[:, 2] - self.base_ang_vel[:, 2])
+        r_square = torch.exp(-ang_vel_error_square * self.cfg.rewards.tracking_sigma)
+        r_abs = torch.exp(-ang_vel_error_abs * self.cfg.rewards.tracking_sigma * 2)
+        r = torch.where(stand_command, r_abs, r_square)
+        # r = torch.exp(-ang_vel_error/self.cfg.rewards.tracking_sigma_ang)
+        # ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
+        return r
     
     def _reward_feet_air_time(self):
         contact = self.contact_forces[:, self.feet_indices, 2] > 5.
@@ -611,7 +664,55 @@ class Humanoid(LeggedRobot):
         air_time = self.feet_air_time.clamp(0, 0.5) * first_contact
         self.feet_air_time *= ~self.contact_filt
         return air_time.sum(dim=1)
-    
+
+    def _reward_stand_still(self):
+        # penalize motion at zero commands
+        stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
+        r = torch.exp(-torch.sum(torch.square(self.dof_pos - self.default_dof_pos), dim=1))
+        r = torch.where(stand_command, r.clone(),
+                        torch.zeros_like(r))
+        return r
+
+    def _reward_low_speed(self):
+        """
+        Rewards or penalizes the robot based on its speed relative to the commanded speed.
+        This function checks if the robot is moving too slow, too fast, or at the desired speed,
+        and if the movement direction matches the command.
+        """
+        # Calculate the absolute value of speed and command for comparison
+        absolute_speed = torch.abs(self.base_lin_vel[:, 0])
+        absolute_command = torch.abs(self.commands[:, 0])
+
+        # Define speed criteria for desired range
+        speed_too_low = absolute_speed < 0.5 * absolute_command
+        speed_too_high = absolute_speed > 1.2 * absolute_command
+        speed_desired = ~(speed_too_low | speed_too_high)
+
+        # Check if the speed and command directions are mismatched
+        sign_mismatch = torch.sign(
+            self.base_lin_vel[:, 0]) != torch.sign(self.commands[:, 0])
+
+        # Initialize reward tensor
+        reward = torch.zeros_like(self.base_lin_vel[:, 0])
+
+        # Assign rewards based on conditions
+        # Speed too low
+        reward[speed_too_low] = -1.0
+        # Speed too high
+        reward[speed_too_high] = 0.
+        # Speed within desired range
+        reward[speed_desired] = 1.2
+        # Sign mismatch has the highest priority
+        reward[sign_mismatch] = -2.0
+        return reward * (self.commands[:, 0].abs() > 0.05)
+
+    def _reward_feet_rotation(self):
+        feet_euler_xyz = self.feet_euler_xyz
+        rotation = torch.sum(torch.square(feet_euler_xyz[:,:,:2]),dim=[1,2])
+        # rotation = torch.sum(torch.square(feet_euler_xyz[:,:,1]),dim=1)
+        r = torch.exp(-rotation*15)
+        return r
+
     def _reward_lin_vel_z(self):
         rew = torch.square(self.base_lin_vel[:, 2])
         return rew
@@ -705,9 +806,9 @@ class Humanoid(LeggedRobot):
     def _reward_joint_pos(self):
         joint_pos = self.dof_pos.clone()
         pos_target = self.ref_dof_pos.clone()
-        # stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
-        # pos_target[stand_command] = self.default_dof_pos.clone()
+        stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
+        pos_target[stand_command] = self.default_dof_pos.clone()
         diff = joint_pos - pos_target
         r = torch.exp(-2 * torch.norm(diff, dim=1)) - 0.2 * torch.norm(diff, dim=1).clamp(0, 0.5)
-        # r[stand_command] = 1.0
+        r[stand_command] = 1.0
         return r

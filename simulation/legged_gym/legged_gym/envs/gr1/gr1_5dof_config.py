@@ -93,10 +93,10 @@ class GR1_5dofCfg(HumanoidCfg):
         }
 
         action_scale = 0.5
-        decimation = 10
+        decimation = 20
 
     class sim(HumanoidCfg.sim):
-        dt = 0.002
+        dt = 0.001
 
     class normalization(HumanoidCfg.normalization):
         class obs_scales:
@@ -175,16 +175,19 @@ class GR1_5dofCfg(HumanoidCfg):
         class scales:
             joint_pos = 2.2 # 1.6
             feet_clearance = 1.
-            feet_contact_number = 1.2
+            feet_contact_number = 2.0
 
-            feet_air_time = 1.
+            feet_air_time = 1.2
             foot_slip = -0.1
             feet_distance = 0.2
             knee_distance = 0.2
 
             tracking_lin_vel_exp = 1.875
-            track_vel_hard = 1.2
+            vel_mismatch_exp = 0.5  # lin_z; ang x,y
             tracking_ang_vel = 2.0
+            low_speed = 0.2
+            track_vel_hard = 0.5
+
 
             alive = 2.0
             dof_error = -0.06
@@ -197,6 +200,7 @@ class GR1_5dofCfg(HumanoidCfg):
             orientation = -1.0
 
             collision = -10.0
+            stand_still = 2.5
 
             dof_pos_limits = -5.0
             dof_torque_limits = -0.8
@@ -257,16 +261,18 @@ class GR1_5dofCfg(HumanoidCfg):
     class commands:
         curriculum = False
         num_commands = 3
-        resampling_time = 3.  # time before command are changed[s]
+        resampling_time = 25.  # time before command are changed[s]
 
         ang_vel_clip = 0.1
         lin_vel_clip = 0.1
+        stand_com_threshold = 0.05 # if (lin_vel_x, lin_vel_y, ang_vel_yaw).norm < this, robot should stand
+        sw_switch = True # use stand_com_threshold or not
+
 
         class ranges:
             lin_vel_x = [0., 0.6]  # min max [m/s]
             lin_vel_y = [-0.3, 0.3]
             ang_vel_yaw = [-0.3, 0.3]  # min max [rad/s]
-
 
 class GR1_5dofCfgPPO(HumanoidCfgPPO):
     seed = 1
@@ -275,7 +281,7 @@ class GR1_5dofCfgPPO(HumanoidCfgPPO):
         policy_class_name = 'ActorCriticRMA'
         algorithm_class_name = 'PPORMA'
         runner_class_name = 'OnPolicyRunner'
-        max_iterations = 30002  # number of policy updates
+        max_iterations = 20001  # number of policy updates
 
         # logging
         save_interval = 100  # check for potential saves every this many iterations

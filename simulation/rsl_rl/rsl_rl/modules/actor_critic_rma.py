@@ -114,7 +114,10 @@ class Actor(nn.Module):
             self.priv_encoder = nn.Identity()
             priv_encoder_output_dim = num_priv_latent
 
+        # 激活层类型 本体感知数量 历史时间步长 输出层维度
         self.history_encoder = StateHistoryEncoder(activation, num_prop, num_hist, priv_encoder_output_dim)
+
+        # actor层构成 本体感知数量+特权编码，隐藏层第一维
         actor_layers = []
         actor_layers.append(nn.Linear(num_prop +
                                       priv_encoder_output_dim, 
@@ -122,21 +125,25 @@ class Actor(nn.Module):
         actor_layers.append(activation)
         for l in range(len(actor_hidden_dims)):
             if l == len(actor_hidden_dims) - 1:
-                actor_layers.append(nn.Linear(actor_hidden_dims[l], num_actions))
+                actor_layers.append(nn.Linear(actor_hidden_dims[l], num_actions)) # 最后一层输出为actions个数
             else:
-                actor_layers.append(nn.Linear(actor_hidden_dims[l], actor_hidden_dims[l + 1]))
+                actor_layers.append(nn.Linear(actor_hidden_dims[l], actor_hidden_dims[l + 1])) # 中间为隐藏层+激活层
                 actor_layers.append(activation)
         if tanh_encoder_output:
             actor_layers.append(nn.Tanh())
         self.actor_backbone = nn.Sequential(*actor_layers)
 
+
+    # 用于提取前向主干网络
     def forward(self, obs_all, hist_encoding: bool, eval=False, scandots_latent=None):
         obs = obs_all
         obs_prop = obs[:, :self.num_prop]
+        # latent通过历史编码
         if hist_encoding:
             latent = self.infer_hist_latent(obs_all)
         else:
             latent = self.infer_priv_latent(obs_all)
+        # 主干网络输入为 本体感知 + 历史编码
         backbone_input = torch.cat([obs_prop, latent], dim=1)
         backbone_output = self.actor_backbone(backbone_input)
         return backbone_output
@@ -177,7 +184,8 @@ class ActorCriticRMA(nn.Module):
         self.kwargs = kwargs
         priv_encoder_dims= kwargs['priv_encoder_dims']
         activation = get_activation(activation)
-        
+
+        # 创建actor对象
         self.actor = Actor(num_prop, num_actions, actor_hidden_dims, priv_encoder_dims, num_priv_latent, num_hist, activation, tanh_encoder_output=kwargs['tanh_encoder_output'])
         
         # Value function
@@ -186,18 +194,18 @@ class ActorCriticRMA(nn.Module):
         critic_layers.append(activation)
         for l in range(len(critic_hidden_dims)):
             if l == len(critic_hidden_dims) - 1:
-                critic_layers.append(nn.Linear(critic_hidden_dims[l], 1))
+                critic_layers.append(nn.Linear(critic_hidden_dims[l], 1)) # 最后一层输出为1
             else:
-                critic_layers.append(nn.Linear(critic_hidden_dims[l], critic_hidden_dims[l + 1]))
+                critic_layers.append(nn.Linear(critic_hidden_dims[l], critic_hidden_dims[l + 1])) # 中间为隐藏层+激活层
                 critic_layers.append(activation)
         self.critic = nn.Sequential(*critic_layers)
 
         # Action noise
         if self.fix_action_std:
             action_std_tensor = torch.tensor(action_std)
-            self.std = nn.Parameter(action_std_tensor, requires_grad=False)
+            self.std = nn.Parameter(action_std_tensor, requires_grad=False) # 固定action std
         else:
-            self.std = nn.Parameter(init_noise_std * torch.ones(num_actions))
+            self.std = nn.Parameter(init_noise_std * torch.ones(num_actions)) # 不固定 使用init_noise_std
         self.distribution = None
         # disable args validation for speedup
         Normal.set_default_validate_args = False
