@@ -30,3 +30,4 @@
 
 from .actor_critic_rma import ActorCriticRMA
 from .actor_critic import ActorCritic
+from .actor_critic_explicit import ActorCriticExplicit

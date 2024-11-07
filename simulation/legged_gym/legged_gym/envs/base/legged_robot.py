@@ -34,6 +34,7 @@ from warnings import WarningMessage
 import numpy as np
 import os
 
+from collections import deque
 from isaacgym.torch_utils import *
 from isaacgym import gymtorch, gymapi, gymutil
 
@@ -359,7 +360,15 @@ class LeggedRobot(BaseTask):
         # send timeout info to the algorithm
         if self.cfg.env.send_timeouts:
             self.extras["time_outs"] = self.time_out_buf
-        
+
+    def randomize_lag_props(self, env_ids):
+        '''
+        random add lag
+        '''
+        if self.cfg.domain_rand.add_lag:
+            self.lag_buffer[env_ids, :, :] = 0.0
+
+
     def compute_reward(self):
         """ Compute rewards
             Calls each reward function which had a non-zero scale (processed in self._prepare_reward_function())
@@ -472,6 +481,91 @@ class LeggedRobot(BaseTask):
         self.gym.viewer_camera_look_at(self.viewer, None, cam_pos, cam_target)
 
     #------------- Callbacks --------------
+    def randomize_rigid_body_props(self, env_ids):
+        ''' Randomise some of the rigid body properties of the actor in the given environments, i.e.
+            sample the mass, centre of mass position, friction and restitution.'''
+        if self.cfg.domain_rand.randomize_base_mass:
+            min_payload, max_payload = self.cfg.domain_rand.added_mass_range
+
+            self.payload_masses[env_ids] = torch_rand_float(min_payload, max_payload, (len(env_ids), 1),
+                                                            device=self.device)
+
+        if self.cfg.domain_rand.randomize_link_mass:
+            min_link_mass, max_link_mass = self.cfg.domain_rand.added_link_mass_range
+
+            self.link_masses[env_ids] = torch_rand_float(min_link_mass, max_link_mass,
+                                                         (len(env_ids), self.num_bodies - 1), device=self.device)
+
+        if self.cfg.domain_rand.randomize_com:
+            comx_displacement, comy_displacement, comz_displacement = self.cfg.domain_rand.com_displacement_range
+            self.com_displacements[env_ids, :] = torch.cat(
+                (torch_rand_float(comx_displacement[0], comx_displacement[1], (len(env_ids), 1), device=self.device),
+                 torch_rand_float(comy_displacement[0], comy_displacement[1], (len(env_ids), 1), device=self.device),
+                 torch_rand_float(comz_displacement[0], comz_displacement[1], (len(env_ids), 1), device=self.device)),
+                dim=-1)
+
+        if self.cfg.domain_rand.randomize_link_com:
+            comx_displacement, comy_displacement, comz_displacement = self.cfg.domain_rand.link_com_displacement_range
+            self.link_com_displacements[env_ids, :, :] = torch.cat((torch_rand_float(comx_displacement[0],
+                                                                                     comx_displacement[1], (
+                                                                                     len(env_ids), self.num_bodies - 1,
+                                                                                     1), device=self.device),
+                                                                    torch_rand_float(comy_displacement[0],
+                                                                                     comy_displacement[1], (
+                                                                                     len(env_ids), self.num_bodies - 1,
+                                                                                     1), device=self.device),
+                                                                    torch_rand_float(comz_displacement[0],
+                                                                                     comz_displacement[1], (
+                                                                                     len(env_ids), self.num_bodies - 1,
+                                                                                     1), device=self.device)),
+                                                                   dim=-1)
+        if self.cfg.domain_rand.randomize_base_inertia:
+            inertia_x, inertia_y, inertia_z = self.cfg.domain_rand.base_inertial_range
+            self.base_inertia_x[env_ids, :, :] = torch_rand_float(inertia_x[0], inertia_x[1], (len(env_ids), 1),
+                                                                  device=self.device)
+            self.base_inertia_y[env_ids, :, :] = torch_rand_float(inertia_y[0], inertia_y[1], (len(env_ids), 1),
+                                                                  device=self.device)
+            self.base_inertia_z[env_ids, :, :] = torch_rand_float(inertia_z[0], inertia_z[1], (len(env_ids), 1),
+                                                                  device=self.device)
+
+        if self.cfg.domain_rand.randomize_link_inertia:
+            inertia_x, inertia_y, inertia_z = self.cfg.domain_rand.link_inertial_range
+            self.link_inertia_x[env_ids, :, :] = torch_rand_float(inertia_x[0], inertia_x[1],
+                                                                  (len(env_ids), self.num_bodies - 1),
+                                                                  device=self.device)
+            self.link_inertia_y[env_ids, :, :] = torch_rand_float(inertia_y[0], inertia_y[1],
+                                                                  (len(env_ids), self.num_bodies - 1),
+                                                                  device=self.device)
+            self.link_inertia_z[env_ids, :, :] = torch_rand_float(inertia_z[0], inertia_z[1],
+                                                                  (len(env_ids), self.num_bodies - 1),
+                                                                  device=self.device)
+
+    def randomize_dof_props(self, env_ids):
+        # Randomise the motor strength:
+        # rand ouput torque
+        if self.cfg.domain_rand.randomize_torque:
+            motor_strength_ranges = self.cfg.domain_rand.torque_multiplier_range
+            self.torque_multi[env_ids] = torch_rand_float(motor_strength_ranges[0], motor_strength_ranges[1],
+                                                          (len(env_ids), self.num_actions), device=self.device)
+
+        # rand motor position offset
+        if self.cfg.domain_rand.randomize_motor_offset:
+            min_offset, max_offset = self.cfg.domain_rand.motor_offset_range
+            self.motor_offsets[env_ids, :] = torch_rand_float(min_offset, max_offset, (len(env_ids), self.num_actions),
+                                                              device=self.device)
+
+        # rand kp kd gain
+        if self.cfg.domain_rand.randomize_gains:
+            p_gains_range = self.cfg.domain_rand.stiffness_multiplier_range
+            d_gains_range = self.cfg.domain_rand.damping_multiplier_range
+
+            self.randomized_p_gains[env_ids] = torch_rand_float(p_gains_range[0], p_gains_range[1],
+                                                                (len(env_ids), self.num_dofs),
+                                                                device=self.device) * self.p_gains
+            self.randomized_d_gains[env_ids] = torch_rand_float(d_gains_range[0], d_gains_range[1],
+                                                                (len(env_ids), self.num_dofs),
+                                                                device=self.device) * self.d_gains
+
     def _process_rigid_shape_props(self, props, env_id):
         """ Callback allowing to store/change/randomize the rigid shape properties of each environment.
             Called During environment creation.
@@ -488,12 +582,18 @@ class LeggedRobot(BaseTask):
             if env_id==0:
                 # prepare friction randomization
                 friction_range = self.cfg.domain_rand.friction_range
-                num_buckets = 64
+                restitution_range = self.cfg.domain_rand.restitution_range
+                num_buckets = 256
                 bucket_ids = torch.randint(0, num_buckets, (self.num_envs, 1))
                 friction_buckets = torch_rand_float(friction_range[0], friction_range[1], (num_buckets,1), device='cpu')
+                restitution_buckets = torch_rand_float(restitution_range[0], restitution_range[1], (num_buckets,1), device='cpu')
                 self.friction_coeffs = friction_buckets[bucket_ids] # 从friction_buckets中选择第bucket_ids个摩擦系数
+                self.restitution_coeffs = restitution_buckets[bucket_ids]
             for s in range(len(props)):
                 props[s].friction = self.friction_coeffs[env_id]
+                props[s].restitution = self.restitution_coeffs[env_id]
+
+            self.env_frictions[env_id] = self.friction_coeffs[env_id]
         return props
 
     def _process_dof_props(self, props, env_id):
@@ -527,11 +627,13 @@ class LeggedRobot(BaseTask):
     def _process_rigid_body_props(self, props, env_id):
         # No need to use tensors as only called upon env creation
         if self.cfg.domain_rand.randomize_base_mass:
+            self.init_body_mass[env_id] = props[self.torso_idx].mass
             rng_mass = self.cfg.domain_rand.added_mass_range
             rand_mass = np.random.uniform(rng_mass[0], rng_mass[1], size=(1, ))
             props[self.torso_idx].mass += rand_mass
         else:
             rand_mass = np.zeros((1, ))
+        self.body_mass[env_id] = props[self.torso_idx].mass
         if self.cfg.domain_rand.randomize_base_com:
             rng_com = self.cfg.domain_rand.added_com_range
             rng_com_z = self.cfg.domain_rand.added_com_z_range
@@ -544,7 +646,18 @@ class LeggedRobot(BaseTask):
             rand_com = np.zeros(3)
         mass_params = np.concatenate([rand_mass, rand_com])
         return props, mass_params
-    
+
+    def _refresh_actor_rigid_body_props(self, env_ids):
+        ''' Refresh the rigid body properties of the actor in the given environments, i.e.
+            set the payload_mass to the desired values.
+        '''
+        for env_id in env_ids:
+            rigid_body_props = self.gym.get_actor_rigid_body_properties(self.envs[env_id], 0)
+
+            rigid_body_props[0].mass = self.payload_masses[env_id] + self.init_body_mass[env_id]
+
+            self.gym.set_actor_rigid_body_properties(self.envs[env_id], 0, rigid_body_props)
+
     def _post_physics_step_callback(self):
         """ Callback called before computing terminations, rewards, and observations
             Default behaviour: Compute ang vel command based on target and heading, compute measured terrain heights and randomly push robots
@@ -761,11 +874,11 @@ class LeggedRobot(BaseTask):
         self.noise_scale_vec = self._get_noise_scale_vec(self.cfg)
         self.gravity_vec = to_torch(get_axis_params(-1., self.up_axis_idx), device=self.device).repeat((self.num_envs, 1))
         self.forward_vec = to_torch([1., 0., 0.], device=self.device).repeat((self.num_envs, 1))
-        self.torques = torch.zeros(self.num_envs, self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
-        self.p_gains = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
-        self.d_gains = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
+        self.torques = torch.zeros(self.num_envs, self.num_dofs, dtype=torch.float, device=self.device, requires_grad=False)
         self.actions = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
         self.last_actions = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
+        self.last_last_actions = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device,requires_grad=False)
+        self.last_rigid_state = torch.zeros_like(self.rigid_body_states)
         self.last_dof_vel = torch.zeros_like(self.dof_vel)
         self.last_torques = torch.zeros_like(self.torques)
         self.last_root_vel = torch.zeros_like(self.root_states[:, 7:13])
@@ -773,12 +886,12 @@ class LeggedRobot(BaseTask):
         self.reach_goal_timer = torch.zeros(self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
 
         str_rng = self.cfg.domain_rand.motor_strength_range
-        self.motor_strength = (str_rng[1] - str_rng[0]) * torch.rand(2, self.num_envs, self.num_dof, dtype=torch.float, device=self.device, requires_grad=False) + str_rng[0]
+        self.motor_strength = (str_rng[1] - str_rng[0]) * torch.rand(2, self.num_envs, self.num_dofs, dtype=torch.float, device=self.device, requires_grad=False) + str_rng[0]
         if self.cfg.env.history_encoding:
             self.obs_history_buf = torch.zeros(self.num_envs, self.cfg.env.history_len, self.cfg.env.n_proprio, device=self.device, dtype=torch.float)
         self.action_history_buf = torch.zeros(self.num_envs, self.cfg.domain_rand.action_buf_len, self.num_actions, device=self.device, dtype=torch.float)
         self.contact_buf = torch.zeros(self.num_envs, self.cfg.env.contact_buf_len, 2, device=self.device, dtype=torch.float)
-
+        self.commands_scale = torch.tensor([self.obs_scales.lin_vel,self.obs_scales.lin_vel,self.obs_scales.ang_vel],device=self.device,requires_grad=False)
         self.commands = torch.zeros(self.num_envs, self.cfg.commands.num_commands, dtype=torch.float, device=self.device, requires_grad=False) # x vel, y vel, yaw vel, heading
         self.feet_air_time = torch.zeros(self.num_envs, self.feet_indices.shape[0], dtype=torch.float, device=self.device, requires_grad=False)
         self.feet_land_time = torch.zeros(self.num_envs, self.feet_indices.shape[0], dtype=torch.float, device=self.device, requires_grad=False)
@@ -797,7 +910,7 @@ class LeggedRobot(BaseTask):
         # joint positions offsets and PD gains
         self.default_dof_pos = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
         self.default_dof_pos_all = torch.zeros(self.num_envs, self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
-        for i in range(self.num_dofs):
+        for i in range(self.num_actions):
             name = self.dof_names[i]
             angle = self.cfg.init_state.default_joint_angles[name]
             self.default_dof_pos[i] = angle
@@ -812,13 +925,98 @@ class LeggedRobot(BaseTask):
                 self.d_gains[i] = 0.
                 if self.cfg.control.control_type in ["P", "V"]:
                     print(f"PD gain of joint {name} were not defined, setting them to zero")
+
         self.default_dof_pos = self.default_dof_pos.unsqueeze(0)
-
+        self.default_joint_pd_target = self.default_dof_pos.clone()
+        self.rand_push_force = torch.zeros((self.num_envs, 3), dtype=torch.float32, device=self.device)
+        self.rand_push_torque = torch.zeros((self.num_envs, 3), dtype=torch.float32, device=self.device)
         self.default_dof_pos_all[:] = self.default_dof_pos[0]
-
+        self.obs_history = deque(maxlen=self.cfg.env.frame_stack)
+        self.critic_history = deque(maxlen=self.cfg.env.c_frame_stack)
         self.height_update_interval = 1
         if hasattr(self.cfg.env, "height_update_dt"):
             self.height_update_interval = int(self.cfg.env.height_update_dt / (self.cfg.sim.dt * self.cfg.control.decimation))
+        for _ in range(self.cfg.env.frame_stack):
+            self.obs_history.append(torch.zeros(
+                self.num_envs, self.cfg.env.num_single_obs, dtype=torch.float, device=self.device))
+        for _ in range(self.cfg.env.c_frame_stack):
+            if self.cfg.terrain.measure_heights:
+                self.critic_history.append(torch.zeros(
+                    self.num_envs, self.cfg.env.single_num_privileged_obs + self.cfg.terrain.num_height,
+                    dtype=torch.float, device=self.device))
+            else:
+                self.critic_history.append(torch.zeros(
+                    self.num_envs, self.cfg.env.single_num_privileged_obs, dtype=torch.float, device=self.device))
+
+        if self.cfg.domain_rand.add_lag:
+            self.lag_buffer = torch.zeros(self.num_envs, self.num_actions,
+                                          self.cfg.domain_rand.lag_timesteps_range[1] + 1, device=self.device)
+            if self.cfg.domain_rand.randomize_lag_timesteps:
+                self.lag_timestep = torch.randint(self.cfg.domain_rand.lag_timesteps_range[0],
+                                                  self.cfg.domain_rand.lag_timesteps_range[1] + 1, (self.num_envs,),
+                                                  device=self.device)
+                if self.cfg.domain_rand.randomize_lag_timesteps_perstep:
+                    self.last_lag_timestep = torch.ones(self.num_envs, device=self.device, dtype=int) * \
+                                             self.cfg.domain_rand.lag_timesteps_range[1]
+            else:
+                self.lag_timestep = torch.ones(self.num_envs, device=self.device) * \
+                                    self.cfg.domain_rand.lag_timesteps_range[1]
+
+        if self.cfg.domain_rand.add_dof_lag:
+            self.dof_lag_buffer = torch.zeros(self.num_envs, self.num_actions * 2,
+                                              self.cfg.domain_rand.dof_lag_timesteps_range[1] + 1, device=self.device)
+            if self.cfg.domain_rand.randomize_dof_lag_timesteps:
+                self.dof_lag_timestep = torch.randint(self.cfg.domain_rand.dof_lag_timesteps_range[0],
+                                                      self.cfg.domain_rand.dof_lag_timesteps_range[1] + 1,
+                                                      (self.num_envs,), device=self.device)
+                if self.cfg.domain_rand.randomize_dof_lag_timesteps_perstep:
+                    self.last_dof_lag_timestep = torch.ones(self.num_envs, device=self.device, dtype=int) * \
+                                                 self.cfg.domain_rand.dof_lag_timesteps_range[1]
+            else:
+                self.dof_lag_timestep = torch.ones(self.num_envs, device=self.device) * \
+                                        self.cfg.domain_rand.dof_lag_timesteps_range[1]
+
+        if self.cfg.domain_rand.add_imu_lag:
+            self.imu_lag_buffer = torch.zeros(self.num_envs, 6, self.cfg.domain_rand.imu_lag_timesteps_range[1] + 1,
+                                              device=self.device)
+            if self.cfg.domain_rand.randomize_imu_lag_timesteps:
+                self.imu_lag_timestep = torch.randint(self.cfg.domain_rand.imu_lag_timesteps_range[0],
+                                                      self.cfg.domain_rand.imu_lag_timesteps_range[1] + 1,
+                                                      (self.num_envs,), device=self.device)
+                if self.cfg.domain_rand.randomize_imu_lag_timesteps_perstep:
+                    self.last_imu_lag_timestep = torch.ones(self.num_envs, device=self.device, dtype=int) * \
+                                                 self.cfg.domain_rand.imu_lag_timesteps_range[1]
+            else:
+                self.imu_lag_timestep = torch.ones(self.num_envs, device=self.device) * \
+                                        self.cfg.domain_rand.imu_lag_timesteps_range[1]
+
+        if self.cfg.domain_rand.add_dof_pos_vel_lag:
+            self.dof_pos_lag_buffer = torch.zeros(self.num_envs, self.num_actions,
+                                                  self.cfg.domain_rand.dof_pos_lag_timesteps_range[1] + 1,
+                                                  device=self.device)
+            self.dof_vel_lag_buffer = torch.zeros(self.num_envs, self.num_actions,
+                                                  self.cfg.domain_rand.dof_vel_lag_timesteps_range[1] + 1,
+                                                  device=self.device)
+            if self.cfg.domain_rand.randomize_dof_pos_lag_timesteps:
+                self.dof_pos_lag_timestep = torch.randint(self.cfg.domain_rand.dof_pos_lag_timesteps_range[0],
+                                                          self.cfg.domain_rand.dof_pos_lag_timesteps_range[1] + 1,
+                                                          (self.num_envs,), device=self.device)
+                if self.cfg.domain_rand.randomize_dof_pos_lag_timesteps_perstep:
+                    self.last_dof_pos_lag_timestep = torch.ones(self.num_envs, device=self.device, dtype=int) * \
+                                                     self.cfg.domain_rand.dof_pos_lag_timesteps_range[1]
+            else:
+                self.dof_pos_lag_timestep = torch.ones(self.num_envs, device=self.device) * \
+                                            self.cfg.domain_rand.dof_pos_lag_timesteps_range[1]
+            if self.cfg.domain_rand.randomize_dof_vel_lag_timesteps:
+                self.dof_vel_lag_timestep = torch.randint(self.cfg.domain_rand.dof_vel_lag_timesteps_range[0],
+                                                          self.cfg.domain_rand.dof_vel_lag_timesteps_range[1] + 1,
+                                                          (self.num_envs,), device=self.device)
+                if self.cfg.domain_rand.randomize_dof_vel_lag_timesteps_perstep:
+                    self.last_dof_vel_lag_timestep = torch.ones(self.num_envs, device=self.device, dtype=int) * \
+                                                     self.cfg.domain_rand.dof_vel_lag_timesteps_range[1]
+            else:
+                self.dof_vel_lag_timestep = torch.ones(self.num_envs, device=self.device) * \
+                                            self.cfg.domain_rand.dof_vel_lag_timesteps_range[1]
 
     def _prepare_reward_function(self):
         """ Prepares a list of reward functions, whcih will be called to compute the total reward.
@@ -978,6 +1176,9 @@ class LeggedRobot(BaseTask):
         self.base_init_state = to_torch(base_init_state_list, device=self.device, requires_grad=False)
         start_pose = gymapi.Transform()
         start_pose.p = gymapi.Vec3(*self.base_init_state[:3])
+        self.p_gains = torch.zeros(self.num_dofs, dtype=torch.float, device=self.device, requires_grad=False)
+        self.d_gains = torch.zeros(self.num_dofs, dtype=torch.float, device=self.device, requires_grad=False)
+        self.init_randomize_props()
 
         self._get_env_origins()
         spacing = self.cfg.env.env_spacing
@@ -989,6 +1190,14 @@ class LeggedRobot(BaseTask):
             env_upper = gymapi.Vec3(0., 0., 0.)
         self.actor_handles = []
         self.envs = []
+        self.env_frictions = torch.zeros(self.num_envs, 1, dtype=torch.float32, device=self.device)
+        self.body_mass = torch.zeros(self.num_envs, 1, dtype=torch.float32, device=self.device, requires_grad=False)
+        self.init_body_mass = torch.zeros(self.num_envs, 1, dtype=torch.float32, device=self.device,requires_grad=False)
+        self.total_mass = torch.zeros(self.num_envs, 1, dtype=torch.float32, device=self.device, requires_grad=False)
+        # self.randomize_rigid_body_props(torch.arange(self.num_envs, device=self.device))
+        # self.randomize_dof_props(torch.arange(self.num_envs, device=self.device))
+
+
         self.cam_handles = []
         self.cam_tensors = []
         self.mass_params_tensor = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device, requires_grad=False)
@@ -1036,7 +1245,84 @@ class LeggedRobot(BaseTask):
         self.termination_contact_indices = torch.zeros(len(termination_contact_names), dtype=torch.long, device=self.device, requires_grad=False)
         for i in range(len(termination_contact_names)):
             self.termination_contact_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.actor_handles[0], termination_contact_names[i])
-    
+
+    def init_randomize_props(self):
+        ''' Initialize torch tensors for random properties
+        '''
+        if self.cfg.domain_rand.randomize_base_mass:
+            self.payload_masses = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device,
+                                              requires_grad=False)
+
+        if self.cfg.domain_rand.randomize_base_com:
+            self.com_displacements = torch.zeros(self.num_envs, 3, dtype=torch.float, device=self.device,
+                                                 requires_grad=False)
+
+        if self.cfg.domain_rand.randomize_base_inertia:
+            self.base_inertia_x = torch.ones(self.num_envs, 1, dtype=torch.float, device=self.device,
+                                             requires_grad=False)
+            self.base_inertia_y = torch.ones(self.num_envs, 1, dtype=torch.float, device=self.device,
+                                             requires_grad=False)
+            self.base_inertia_z = torch.ones(self.num_envs, 1, dtype=torch.float, device=self.device,
+                                             requires_grad=False)
+
+        if self.cfg.domain_rand.randomize_link_mass:
+            self.link_masses = torch.ones(self.num_envs, self.num_bodies - 1, dtype=torch.float, device=self.device,
+                                          requires_grad=False)
+
+        if self.cfg.domain_rand.randomize_link_com:
+            self.link_com_displacements = torch.zeros(self.num_envs, self.num_bodies - 1, 3, dtype=torch.float,
+                                                      device=self.device, requires_grad=False)
+
+        if self.cfg.domain_rand.randomize_link_inertia:
+            self.link_inertia_x = torch.ones(self.num_envs, self.num_bodies - 1, dtype=torch.float, device=self.device,
+                                             requires_grad=False)
+            self.link_inertia_y = torch.ones(self.num_envs, self.num_bodies - 1, dtype=torch.float, device=self.device,
+                                             requires_grad=False)
+            self.link_inertia_z = torch.ones(self.num_envs, self.num_bodies - 1, dtype=torch.float, device=self.device,
+                                             requires_grad=False)
+
+        if self.cfg.domain_rand.randomize_torque:
+            self.torque_multi = torch.ones(self.num_envs, self.num_actions, dtype=torch.float, device=self.device,
+                                           requires_grad=False)
+
+        self.motor_offsets = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device,
+                                         requires_grad=False)
+
+        if self.cfg.domain_rand.randomize_gains:
+            self.randomized_p_gains = torch.zeros(self.num_envs, self.num_dofs, dtype=torch.float,
+                                                  device=self.device, requires_grad=False) * self.p_gains
+            self.randomized_d_gains = torch.zeros(self.num_envs, self.num_dofs, dtype=torch.float,
+                                                  device=self.device, requires_grad=False) * self.d_gains
+
+    def _get_env_origins(self):
+        ''' Sets environment origins. On rough terrain the origins are defined by the terrain platforms.
+            Otherwise create a grid.
+        '''
+        if self.cfg.terrain.mesh_type in ["heightfield", "trimesh"]:
+            self.custom_origins = True
+            self.env_origins = torch.zeros(self.num_envs, 3, device=self.device, requires_grad=False)
+            # put robots at the origins defined by the terrain
+            max_init_level = self.cfg.terrain.max_init_terrain_level
+            if not self.cfg.terrain.curriculum: max_init_level = self.cfg.terrain.num_rows - 1
+            self.terrain_levels = torch.randint(0, max_init_level + 1, (self.num_envs,), device=self.device)
+            self.terrain_types = torch.div(torch.arange(self.num_envs, device=self.device),
+                                           (self.num_envs / self.cfg.terrain.num_cols), rounding_mode='floor').to(
+                torch.long)
+            self.max_terrain_level = self.cfg.terrain.num_rows
+            self.terrain_origins = torch.from_numpy(self.terrain.env_origins).to(self.device).to(torch.float)
+            self.env_origins[:] = self.terrain_origins[self.terrain_levels, self.terrain_types]
+        else:
+            self.custom_origins = False
+            self.env_origins = torch.zeros(self.num_envs, 3, device=self.device, requires_grad=False)
+            # create a grid of robots
+            num_cols = np.floor(np.sqrt(self.num_envs))
+            num_rows = np.ceil(self.num_envs / num_cols)
+            xx, yy = torch.meshgrid(torch.arange(num_rows), torch.arange(num_cols))
+            spacing = self.cfg.env.env_spacing
+            self.env_origins[:, 0] = spacing * xx.flatten()[:self.num_envs]
+            self.env_origins[:, 1] = spacing * yy.flatten()[:self.num_envs]
+            self.env_origins[:, 2] = 0.
+
     def _get_body_indices(self):
         """ Store indices of different bodies of the robot
         """
@@ -1087,6 +1373,7 @@ class LeggedRobot(BaseTask):
         self.max_episode_length = np.ceil(self.max_episode_length_s / self.dt)
 
         self.cfg.domain_rand.push_interval = np.ceil(self.cfg.domain_rand.push_interval_s / self.dt)
+        self.cfg.domain_rand.ext_force_interval = np.ceil(self.cfg.domain_rand.ext_force_interval_s / self.dt)
 
     def _draw_height_samples(self):
         """ Draws visualizations for dubugging (slows down simulation a lot).

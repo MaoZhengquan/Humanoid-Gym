@@ -30,3 +30,4 @@
 
 from .ppo_rma import PPORMA
 from .ppo import PPO
+from .ppo_explicit import PPOEXPLICIT

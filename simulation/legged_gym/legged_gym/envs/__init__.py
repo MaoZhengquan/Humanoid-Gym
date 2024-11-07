@@ -40,7 +40,8 @@ from .gr1.gr1_5dof_config import GR1_5dofCfg, GR1_5dofCfgPPO
 
 from .g1.g1_walk_phase import G1WalkPhase
 from .g1.g1_walk_phase_config import G1WalkPhaseCfg, G1WalkPhaseCfgPPO
-
+from .gr1_explicit.gr1_explicit import GR1_explicit
+from .gr1_explicit.gr1_explicit_config import GR1_explicitCfg, GR1_explicitCfgPPO
 from .h1.h1_walk_phase import H1WalkPhase
 from .h1.h1_walk_phase_config import H1WalkPhaseCfg, H1WalkPhaseCfgPPO
 
@@ -53,7 +54,7 @@ from legged_gym.gym_utils.task_registry import task_registry
 
 task_registry.register("gr1_walk_phase", GR1WalkPhase, GR1WalkPhaseCfg(), GR1WalkPhaseCfgPPO())
 task_registry.register("gr1_5dof", GR1_5dof, GR1_5dofCfg(), GR1_5dofCfgPPO())
-
+task_registry.register("gr1_explicit", GR1_explicit, GR1_explicitCfg(), GR1_explicitCfgPPO())
 
 task_registry.register("g1_walk_phase", G1WalkPhase, G1WalkPhaseCfg(), G1WalkPhaseCfgPPO())
 

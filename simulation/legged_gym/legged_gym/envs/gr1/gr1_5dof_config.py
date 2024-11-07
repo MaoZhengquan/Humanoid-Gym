@@ -17,7 +17,7 @@ class GR1_5dofCfg(HumanoidCfg):
 
         env_spacing = 3.  # not used with heightfields/trimeshes
         send_timeouts = True  # send time out information to the algorithm
-        episode_length_s = 10
+        episode_length_s = 24
 
         randomize_start_pos = True
         randomize_start_yaw = True
@@ -93,10 +93,10 @@ class GR1_5dofCfg(HumanoidCfg):
         }
 
         action_scale = 0.5
-        decimation = 20
+        decimation = 10 # policy 100Hz
 
     class sim(HumanoidCfg.sim):
-        dt = 0.001
+        dt = 0.001 # pd 1000Hz
 
     class normalization(HumanoidCfg.normalization):
         class obs_scales:

@@ -111,6 +111,7 @@ class LeggedRobotCfg(BaseConfig):
             ang_vel = 0.25
             dof_pos = 1.0
             dof_vel = 0.05
+            imu = 0.5
             height_measurements = 5.0
         clip_observations = 100.
         clip_actions = 1.2
@@ -268,6 +269,7 @@ class LeggedRobotCfg(BaseConfig):
     class domain_rand:
         randomize_friction = True
         friction_range = [0.6, 2.]
+        restitution_range = [0.0, 0.4]
         randomize_base_mass = True
         added_mass_range = [0., 3.]
         randomize_base_com = True
@@ -279,12 +281,32 @@ class LeggedRobotCfg(BaseConfig):
         randomize_motor = True
         motor_strength_range = [0.8, 1.2]
 
+        randomize_link_com = False
+        link_com_displacement_range = [[-0.005, 0.005],
+                                       [-0.005, 0.005],
+                                       [-0.005, 0.005]]
+
+        randomize_base_inertia = False
+        base_inertial_range = [[0.98, 1.02],
+                               [0.98, 1.02],
+                               [0.98, 1.02]]
+
+        randomize_link_inertia = False
+        link_inertial_range = [[0.98, 1.02],
+                               [0.98, 1.02],
+                               [0.98, 1.02]]
+
+        randomize_link_mass = False
+        added_link_mass_range = [0.9, 1.1]
+
         delay_update_global_steps = 24 * 8000
         action_delay = False
         action_curr_step = [1, 1]
         action_curr_step_scratch = [0, 1]
         action_delay_view = 1
         action_buf_len = 8
+
+        ext_force_interval_s = 10
         
     class rewards:
         class scales:

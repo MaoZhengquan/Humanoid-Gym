@@ -5,9 +5,9 @@
 
 robot_name=${1}  # Remove the space around the assignment operator
 #task_name="${robot_name}_walk_phase"
-task_name="${robot_name}_5dof"
+task_name="${robot_name}_explicit"
 #proj_name="${robot_name}_walk_phase"
-proj_name="${robot_name}_5dof"
+proj_name="${robot_name}_explicit"
 exptid=${2}
 
 # Run the training script

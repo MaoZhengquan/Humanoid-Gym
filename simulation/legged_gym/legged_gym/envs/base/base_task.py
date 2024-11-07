@@ -60,8 +60,10 @@ class BaseTask():
 
         self.num_envs = cfg.env.num_envs
         self.num_obs = cfg.env.num_observations
+        self.num_short_obs = int(cfg.env.num_single_obs * cfg.env.short_frame_stack)
         self.num_privileged_obs = cfg.env.num_privileged_obs
         self.num_actions = cfg.env.num_actions
+        self.num_single_obs = cfg.env.num_single_obs
         
         # optimization flags for pytorch JIT
         torch._C._jit_set_profiling_mode(False)

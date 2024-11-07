@@ -14,14 +14,14 @@ from legged_gym import LEGGED_GYM_ROOT_DIR, POSE_DIR
 from legged_gym.envs.base.base_task import BaseTask
 from legged_gym.envs.base.humanoid import Humanoid
 # from .humanoid_config import HumanoidCfg
-from .gr1_walk_phase_config import GR1WalkPhaseCfg
+from .gr1_5dof_config import GR1_5dofCfg
 from legged_gym.envs.base.legged_robot import euler_from_quaternion
 from legged_gym.gym_utils.math import *
 from legged_gym.gym_utils.motor_delay_fft import MotorDelay_130, MotorDelay_80
 
 
 class GR1_5dof(Humanoid):
-    def __init__(self, cfg: GR1WalkPhaseCfg, sim_params, physics_engine, sim_device, headless):
+    def __init__(self, cfg: GR1_5dofCfg, sim_params, physics_engine, sim_device, headless):
         self.control_index = np.array([0, 1, 2, 3, 4, 6, 7, 8, 9, 10])
         self.cfg = cfg
         self.use_motor_model = self.cfg.env.use_motor_model

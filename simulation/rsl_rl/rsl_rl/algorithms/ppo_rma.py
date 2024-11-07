@@ -34,7 +34,8 @@ import torch.optim as optim
 import numpy as np
 
 from rsl_rl.modules import ActorCriticRMA
-from rsl_rl.storage import RolloutStorage, ReplayBuffer
+from rsl_rl.storage.rollout_storage import RolloutStorage
+from rsl_rl.storage.replay_buffer import ReplayBuffer
 from rsl_rl.utils import unpad_trajectories
 import time
 

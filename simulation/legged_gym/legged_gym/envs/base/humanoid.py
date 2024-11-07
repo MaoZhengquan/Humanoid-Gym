@@ -812,3 +812,4 @@ class Humanoid(LeggedRobot):
         r = torch.exp(-2 * torch.norm(diff, dim=1)) - 0.2 * torch.norm(diff, dim=1).clamp(0, 0.5)
         r[stand_command] = 1.0
         return r
+
