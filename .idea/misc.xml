@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="lcp-loco" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="lcp-loco" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="dm_rl" project-jdk-type="Python SDK" />
 </project>

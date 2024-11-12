@@ -326,9 +326,9 @@ class Humanoid(LeggedRobot):
                 self.cfg.rewards.regularization_scale *= (1. - self.cfg.rewards.regularization_scale_gamma)
             self.cfg.rewards.regularization_scale = max(min(self.cfg.rewards.regularization_scale, self.cfg.rewards.regularization_scale_range[1]), self.cfg.rewards.regularization_scale_range[0])
 
-        if self.viewer and self.enable_viewer_sync and self.debug_viz:
-            self.gym.clear_lines(self.viewer)
-            self.draw_goal()
+        # if self.viewer and self.enable_viewer_sync and self.debug_viz:
+        #     self.gym.clear_lines(self.viewer)
+        #     self.draw_goal()
     
     def _post_physics_step_callback(self):
         """ Callback called before computing terminations, rewards, and observations
@@ -375,7 +375,6 @@ class Humanoid(LeggedRobot):
     def check_termination(self):
         self.reset_buf = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1., dim=1)
         height_cutoff = self.root_states[:, 2] < self.cfg.rewards.termination_height
-        
         roll_cut = torch.abs(self.roll) > 1.0
         pitch_cut = torch.abs(self.pitch) > 1.0
 
@@ -656,11 +655,20 @@ class Humanoid(LeggedRobot):
     
     def _reward_feet_air_time(self):
         contact = self.contact_forces[:, self.feet_indices, 2] > 5.
+        # print("contact",contact[0])
         stance_mask = self._get_gait_phase()
+        # print("command",self.commands[0,0])
+        # print("stance_mask",stance_mask)
+        # print("last_contacts",self.last_contacts)
         self.contact_filt = torch.logical_or(torch.logical_or(contact, stance_mask), self.last_contacts)
+        # print("contact_filt",self.contact_filt)
         self.last_contacts = contact
         first_contact = (self.feet_air_time > 0.) * self.contact_filt
+        # print("first_contact",first_contact[0])
         self.feet_air_time += self.dt
+        # print("feet_air_time", self.feet_air_time)
+        # print("=====================================")
+
         air_time = self.feet_air_time.clamp(0, 0.5) * first_contact
         self.feet_air_time *= ~self.contact_filt
         return air_time.sum(dim=1)

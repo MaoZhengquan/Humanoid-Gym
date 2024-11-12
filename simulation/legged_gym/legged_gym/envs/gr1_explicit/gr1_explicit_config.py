@@ -120,7 +120,7 @@ class GR1_explicitCfg(HumanoidCfg):
             imu = 0.1
 
     class init_state(HumanoidCfg.init_state):
-        pos = [0, 0, 1.0]
+        pos = [0, 0, 0.95]
         default_joint_angles = {
             'l_hip_roll': 0.0,
             'l_hip_yaw': 0.,
@@ -366,11 +366,11 @@ class GR1_explicitCfg(HumanoidCfg):
 
 class GR1_explicitCfgPPO(HumanoidCfgPPO):
     seed = 1
+    runner_class_name = 'OnPolicyRunnerExplicit'
 
     class runner(HumanoidCfgPPO.runner):
         policy_class_name = 'ActorCriticExplicit'
         algorithm_class_name = 'PPOEXPLICIT'
-        runner_class_name = 'OnPolicyRunnerExplicit'
         num_steps_per_env = 24
         max_iterations = 20001  # number of policy updates
 
@@ -409,7 +409,8 @@ class GR1_explicitCfgPPO(HumanoidCfgPPO):
 
     class policy(HumanoidCfgPPO.policy):
         action_std = [0.3, 0.3, 0.3, 0.4, 0.2] * 2
-        action_hidden_dims = [512, 256, 128]
+        fix_action_std = True
+        actor_hidden_dims = [512, 256, 128]
         critic_hidden_dims = [768, 256, 128]
         state_estimator_hidden_dims = [256, 128, 64]
 

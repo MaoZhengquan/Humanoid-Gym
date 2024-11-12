@@ -80,6 +80,11 @@ class PPOEXPLICIT():
             self.transition.rewards += self.gamma * torch.squeeze(
                 self.transition.values * infos['time_outs'].unsqueeze(1).to(self.device), 1)
 
+        # Record the transition
+        self.storage.add_transitions(self.transition)
+        self.transition.clear()
+        self.actor_critic.reset(dones)
+
     def compute_returns(self, last_critic_obs):
         last_values = self.actor_critic.evaluate(last_critic_obs).detach()
         self.storage.compute_returns(last_values, self.gamma, self.lam)
@@ -96,6 +101,8 @@ class PPOEXPLICIT():
                 self.actor_critic.act(obs_batch, masks=masks_batch, hid_states_batch=hid_states_batch[0])
                 state_estimator_input = obs_batch[:,-self.num_short_obs:]
                 est_lin_vel = self.actor_critic.state_estimator(state_estimator_input)
+                # print("lin_vel_idx", self.lin_vel_idx)
+                # print("critic_obs_batch", critic_obs_batch.size())
                 ref_lin_vel = critic_obs_batch[:,self.lin_vel_idx:self.lin_vel_idx+3].clone()
                 actions_log_prob_batch = self.actor_critic.get_actions_log_prob(actions_batch)
                 value_batch = self.actor_critic.evaluate(critic_obs_batch, masks=masks_batch, hid_states=hid_states_batch[1])
@@ -121,12 +128,19 @@ class PPOEXPLICIT():
                             param_group['lr'] = self.learning_rate
 
                 # Surrogate loss
+                # print("actions_log_prob_batch",actions_log_prob_batch)
+                # print("old_actions_log_prob_batch",old_actions_log_prob_batch)
+
                 ratio = torch.exp(actions_log_prob_batch - torch.squeeze(old_actions_log_prob_batch))
+                # print("ratio",ratio)
                 surrogate = -torch.squeeze(advantages_batch) * ratio
+                # print("surrogate",surrogate)
+
                 surrogate_clipped = -torch.squeeze(advantages_batch) * torch.clamp(ratio,
                                                                                    1.0 - self.clip_param,
                                                                                    1.0 + self.clip_param)
                 surrogate_loss = torch.max(surrogate, surrogate_clipped).mean()
+                # print("surrogate_loss",surrogate_loss)
 
                 # Value function loss
                 if self.use_clipped_value_loss:
@@ -143,7 +157,10 @@ class PPOEXPLICIT():
                         self.value_loss_coef * value_loss -
                         self.entropy_coef * entropy_batch.mean() +
                         torch.nn.MSELoss()(est_lin_vel, ref_lin_vel))
-
+                # print("self.value_loss_coef", self.value_loss_coef)
+                # print("self.entropy_coef",self.entropy_coef)
+                # print("est_lin_vel", est_lin_vel[0])
+                # print("ref_lin_vel", ref_lin_vel[0])
                 # Gradient step
                 self.optimizer.zero_grad()
                 loss.backward()

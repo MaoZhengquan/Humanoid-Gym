@@ -403,6 +403,11 @@ class GR1_explicit(Humanoid):
         # critic no lag
         diff = self.dof_pos - self.ref_dof_pos
         # 73
+        # print("base_lin_vel", self.base_lin_vel[0])
+        # print("base_ang_vel", self.base_ang_vel[0])
+        # print("base_euler_xyz", self.base_euler_xyz[0])
+
+
         privileged_obs_buf = torch.cat((
             self.command_input, # 2 + 3
             (self.dof_pos - self.default_joint_pd_target) * self.obs_scales.dof_pos, # 12
@@ -593,66 +598,66 @@ class GR1_explicit(Humanoid):
         if self.cfg.commands.curriculum and (self.common_step_counter % self.max_episode_length == 0):
             self.update_command_curriculum(env_ids)
             # reset rand dof_pos and dof_vel=0
-            self._reset_dofs(env_ids)
+        self._reset_dofs(env_ids)
 
-            # reset base position
-            self._reset_root_states(env_ids)
+        # reset base position
+        self._reset_root_states(env_ids)
 
-            # Randomize joint parameters, like torque gain friction ...
-            self.randomize_dof_props(env_ids)
-            self.randomize_lag_props(env_ids)
+        # Randomize joint parameters, like torque gain friction ...
+        self.randomize_dof_props(env_ids)
+        self.randomize_lag_props(env_ids)
 
-            # reset buffers
-            self.last_last_actions[env_ids] = 0.
-            self.actions[env_ids] = 0.
-            self.last_actions[env_ids] = 0.
-            self.last_rigid_state[env_ids] = 0.
-            self.last_dof_vel[env_ids] = 0.
-            self.last_root_vel[env_ids] = 0.
-            self.feet_air_time[env_ids] = 0.
-            self.episode_length_buf[env_ids] = 0
-            self.phase_length_buf[env_ids] = 0
-            self.reset_buf[env_ids] = 1
-            # rand 0 or 0.5
-            self.gait_start[env_ids] = torch.randint(0, 2, (len(env_ids),)).to(self.device) * 0.5
+        # reset buffers
+        self.last_last_actions[env_ids] = 0.
+        self.actions[env_ids] = 0.
+        self.last_actions[env_ids] = 0.
+        self.last_rigid_state[env_ids] = 0.
+        self.last_dof_vel[env_ids] = 0.
+        self.last_root_vel[env_ids] = 0.
+        self.feet_air_time[env_ids] = 0.
+        self.episode_length_buf[env_ids] = 0
+        self.phase_length_buf[env_ids] = 0
+        self.reset_buf[env_ids] = 1
+        # rand 0 or 0.5
+        self.gait_start[env_ids] = torch.randint(0, 2, (len(env_ids),)).to(self.device) * 0.5
 
-            # resample command
-            self.generate_gait_time(env_ids)
-            self._resample_commands()
+        # resample command
+        self.generate_gait_time(env_ids)
+        self._resample_commands()
 
-            # fill extras
-            self.extras["episode"] = {}
-            for key in self.episode_sums.keys():
-                self.extras["episode"]['rew_' + key] = torch.mean(
-                    self.episode_sums[key][env_ids]) / self.max_episode_length_s
-                self.episode_sums[key][env_ids] = 0.
-            # log additional curriculum info
-            if self.cfg.terrain.mesh_type == "trimesh":
-                self.extras["episode"]["terrain_level"] = torch.mean(self.terrain_levels.float())
-            if self.cfg.commands.curriculum:
-                self.extras["episode"]["max_command_x"] = self.command_ranges["lin_vel_x"][1]
-            # send timeout info to the algorithm
-            if self.cfg.env.send_timeouts:
-                self.extras["time_outs"] = self.time_out_buf
+        # fill extras
+        self.extras["episode"] = {}
+        for key in self.episode_sums.keys():
+            self.extras["episode"]['rew_' + key] = torch.mean(
+                self.episode_sums[key][env_ids]) / self.max_episode_length_s
+            self.episode_sums[key][env_ids] = 0.
+        # log additional curriculum info
+        if self.cfg.terrain.mesh_type == "trimesh":
+            self.extras["episode"]["terrain_level"] = torch.mean(self.terrain_levels.float())
+        if self.cfg.commands.curriculum:
+            self.extras["episode"]["max_command_x"] = self.command_ranges["lin_vel_x"][1]
+        # send timeout info to the algorithm
+        if self.cfg.env.send_timeouts:
+            self.extras["time_outs"] = self.time_out_buf
 
-            # fix reset gravity bug
-            self.gym.refresh_actor_root_state_tensor(self.sim)
-            self.gym.refresh_net_contact_force_tensor(self.sim)
-            self.gym.refresh_rigid_body_state_tensor(self.sim)
+        # fix reset gravity bug
+        self.gym.refresh_actor_root_state_tensor(self.sim)
+        self.gym.refresh_net_contact_force_tensor(self.sim)
+        self.gym.refresh_rigid_body_state_tensor(self.sim)
 
-            self.base_quat[env_ids] = self.root_states[env_ids, 3:7]
-            self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
-            self.projected_gravity[env_ids] = quat_rotate_inverse(self.base_quat[env_ids], self.gravity_vec[env_ids])
-            self.base_lin_vel[env_ids] = quat_rotate_inverse(self.base_quat[env_ids], self.root_states[env_ids, 7:10])
-            self.base_ang_vel[env_ids] = quat_rotate_inverse(self.base_quat[env_ids], self.root_states[env_ids, 10:13])
-            self.feet_quat = self.rigid_body_states[:, self.feet_indices, 3:7]
-            self.feet_euler_xyz = get_euler_xyz_tensor(self.feet_quat)
+        self.base_quat[env_ids] = self.root_states[env_ids, 3:7]
+        self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
+        self.projected_gravity[env_ids] = quat_rotate_inverse(self.base_quat[env_ids], self.gravity_vec[env_ids])
+        self.base_lin_vel[env_ids] = quat_rotate_inverse(self.base_quat[env_ids], self.root_states[env_ids, 7:10])
+        self.base_ang_vel[env_ids] = quat_rotate_inverse(self.base_quat[env_ids], self.root_states[env_ids, 10:13])
+        self.feet_quat = self.rigid_body_states[:, self.feet_indices, 3:7]
+        self.feet_euler_xyz = get_euler_xyz_tensor(self.feet_quat)
 
-            # clear obs history buffer and privileged obs buffer
-            for i in range(self.obs_history.maxlen):
-                self.obs_history[i][env_ids] *= 0
-            for i in range(self.critic_history.maxlen):
-                self.critic_history[i][env_ids] *= 0
+        # clear obs history buffer and privileged obs buffer
+        for i in range(self.obs_history.maxlen):
+            self.obs_history[i][env_ids] *= 0
+        for i in range(self.critic_history.maxlen):
+            self.critic_history[i][env_ids] *= 0
 
     def _reset_dofs(self, env_ids):
         """ Resets DOF position and velocities of selected environmments

@@ -159,7 +159,7 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
             cfg_train.runner.load_run = args.load_run
         if args.checkpoint is not None:
             cfg_train.runner.checkpoint = args.checkpoint
-        cfg_train.policy.fix_action_std = args.fix_action_std
+        # cfg_train.policy.fix_action_std = args.fix_action_std
         if args.no_rand:
             cfg_train.runner.policy_class_name = 'ActorCritic'
             cfg_train.runner.algorithm_class_name = 'PPO'

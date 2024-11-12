@@ -16,7 +16,7 @@ class ActorCriticExplicit(nn.Module):
                        stride_size=[3, 2],
                        lh_output_dim=64,
                        init_noise_std=1.0,
-                       fix_action_std=False,
+                       fix_action_std=True,
                        action_std=None,
                        activation='elu',
                        **kwargs):
@@ -30,6 +30,8 @@ class ActorCriticExplicit(nn.Module):
         super().__init__()
 
         self.fix_action_std = fix_action_std
+        print("self.fix_action_std",self.fix_action_std)
+
         # 定义actor和critic网络
         # num_short_obs = num_single_obs * short_frame_stack 5 history
         # lh_output_dim是cnn的输出
@@ -71,6 +73,7 @@ class ActorCriticExplicit(nn.Module):
             self.std = nn.Parameter(action_std_tensor,requires_grad=False)
         else:
             self.std = nn.Parameter(init_noise_std * torch.ones(num_actions))
+        print("std",self.std)
         self.distribution = None
         Normal.set_default_validate_args = False
 

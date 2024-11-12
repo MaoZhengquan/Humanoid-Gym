@@ -32,6 +32,7 @@ class OnPolicyRunnerExplicit:
         self.cfg = train_cfg["runner"]
         self.alg_cfg = train_cfg["algorithm"]
         self.policy_cfg = train_cfg["policy"]
+        print("self.policy_cfg", self.policy_cfg)
         self.all_cfg = train_cfg
         self.wandb_run_name = (
             datetime.now().strftime("%b%d_%H-%M-%S")
