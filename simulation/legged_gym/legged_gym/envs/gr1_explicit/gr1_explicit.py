@@ -554,15 +554,9 @@ class GR1_explicit(Humanoid):
 
         for i in range(len(self.reward_functions)):
             name = self.reward_names[i]
-            rew = self.reward_functions[i]() * self.reward_scales[name]
-            b = self.reward_scales[name]
-            # print("reward_scales[name]",name)
-            # print("rew_scale",b )
-            self.rew_buf += rew
+            rew = self.reward_functions[i]()
+            self.rew_buf += rew * self.reward_scales[name]
             self.episode_sums[name] += rew
-            a = self.episode_sums[name]
-            # print("episode_sums",a)
-            # print("---------------------------------")
 
         if self.cfg.rewards.only_positive_rewards:
             self.rew_buf[:] = torch.clip(self.rew_buf[:], min=0.)
@@ -635,8 +629,9 @@ class GR1_explicit(Humanoid):
         # fill extras
         self.extras["episode"] = {}
         for key in self.episode_sums.keys():
+            self.extras["episode"]["metric_" + key] = torch.mean(self.episode_sums[key][env_ids]) / self.max_episode_length_s
             self.extras["episode"]['rew_' + key] = torch.mean(
-                self.episode_sums[key][env_ids]) / self.max_episode_length_s
+                self.episode_sums[key][env_ids] * self.reward_scales[key]) / self.max_episode_length_s
             self.episode_sums[key][env_ids] = 0.
         # log additional curriculum info
         if self.cfg.terrain.mesh_type == "trimesh":
@@ -917,6 +912,18 @@ class GR1_explicit(Humanoid):
     # ======================================================================================================================
     # Reward functions
     # ======================================================================================================================
+    def _reward_ref_joint_pos(self):
+        joint_pos = self.dof_pos.clone()
+        pos_target = self.ref_dof_pos.clone()
+        stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
+        pos_target[stand_command] = self.default_dof_pos.clone()
+        diff = joint_pos - pos_target
+        r = torch.exp(-2 * torch.norm(diff, dim=1)) - 0.2 * torch.norm(diff, dim=1).clamp(0, 0.5)
+        r[stand_command] = 1.0
+
+        return r
+
+
     def _reward_action_smoothness(self):
         """
         Encourages smoothness in the robot's actions by penalizing large differences between consecutive actions.

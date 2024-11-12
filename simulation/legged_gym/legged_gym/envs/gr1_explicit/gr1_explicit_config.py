@@ -216,7 +216,7 @@ class GR1_explicitCfg(HumanoidCfg):
         regularization_scale_gamma = 0.0001
 
         class scales:
-            joint_pos = 2.2 # 1.6
+            ref_joint_pos = 2.2 # 1.6
             feet_clearance = 1.
             feet_contact_number = 2.0
 

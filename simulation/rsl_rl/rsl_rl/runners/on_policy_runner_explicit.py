@@ -179,6 +179,7 @@ class OnPolicyRunnerExplicit:
             for key in locs["ep_infos"][0]:
                 infotensor = torch.tensor([], device=self.device)
                 for ep_info in locs["ep_infos"]:
+                    # print("ep_info[key]",ep_info[key])
                     # handle scalar and zero dimensional tensor infos
                     if not isinstance(ep_info[key], torch.Tensor):
                         ep_info[key] = torch.Tensor([ep_info[key]])
@@ -187,15 +188,18 @@ class OnPolicyRunnerExplicit:
                     infotensor = torch.cat((infotensor, ep_info[key].to(self.device)))
                 value = torch.mean(infotensor)
                 # wandb_dict['Episode_rew/' + key] = value
-                if "rew_" in key:
+                if "metric" in key:
                     wandb_dict['Episode_rew_metrics/' + key] = value
                 else:
                     if "tracking" in key:
                         wandb_dict['Episode_rew_tracking/' + key] = value
                     elif "curriculum" in key:
                         wandb_dict['Episode_curriculum/' + key] = value
-                self.writer.add_scalar("Episode/" + key, value, locs["it"])
-                ep_string += f"""{f'Mean episode {key}:':>{pad}} {value:.4f}\n"""
+                    else:
+                        wandb_dict['Episode_rew_regularization/' + key] = value
+                    ep_string += f"""{f'Mean episode {key}:':>{pad}} {value:.4f}\n""" # 不打印输出metrics
+
+                # self.writer.add_scalar("Episode/" + key, value, locs["it"])
         mean_std = self.alg.actor_critic.std.mean()
         fps = int(
             self.num_steps_per_env
