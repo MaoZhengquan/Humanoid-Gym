@@ -77,7 +77,7 @@ class GR1_explicitCfg(HumanoidCfg):
 
     class terrain(HumanoidCfg.terrain):
         mesh_type = 'trimesh'
-        curriculum = False
+        curriculum = True
         # rough terrain only
         measure_heights = False
         static_friction = 0.6
@@ -179,10 +179,10 @@ class GR1_explicitCfg(HumanoidCfg):
         }
 
         action_scale = 0.5
-        decimation = 10 # policy 100Hz
+        decimation = 4 # policy 100Hz
 
     class sim(HumanoidCfg.sim):
-        dt = 0.001 # pd 1000Hz
+        dt = 0.005 # pd 1000Hz
         substeps = 1
         up_axis = 1
 
@@ -247,11 +247,11 @@ class GR1_explicitCfg(HumanoidCfg):
             torques = -8e-9
             dof_vel = -2e-8
             dof_acc = -1e-7
-            collision = -10.0
+            collision = -1.0
             stand_still = 2.5
 
-            alive = 2.0
-            feet_stumble = -1.25
+            # alive = 2.0
+            # feet_stumble = -1.25
 
             # limits
             dof_vel_limits = -1.
@@ -345,7 +345,7 @@ class GR1_explicitCfg(HumanoidCfg):
         ang_vel_clip = 0.1
         lin_vel_clip = 0.1
         resampling_time = 25.  # time before command are changed[s]
-        gait = ["walk_omnidirectional", "stand", "walk_omnidirectional"] # gait type during training
+        gait = ["walk_omnidirectional", "stand" ,"walk_omnidirectional", "stand", "walk_omnidirectional"] # gait type during training
         # proportion during whole life time
         gait_time_range = {"walk_sagittal": [2,6],
                            "walk_lateral": [2,6],
@@ -389,7 +389,7 @@ class GR1_explicitCfgPPO(HumanoidCfgPPO):
         use_clipped_value_loss = True
         clip_param = 0.2
         entropy_coef = 0.001
-        learning_rate = 1e-5
+        learning_rate = 2e-4
         num_learning_epochs = 2
         num_mini_batches = 4
         gamma = 0.994

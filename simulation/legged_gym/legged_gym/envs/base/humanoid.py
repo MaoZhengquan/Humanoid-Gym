@@ -746,9 +746,25 @@ class Humanoid(LeggedRobot):
     
     def _reward_feet_contact_forces(self):
         rew = torch.norm(self.contact_forces[:, self.feet_indices, 2], dim=-1)
+        print("contact_force",self.contact_forces[0, self.feet_indices, :])
+        print("rew_size",rew.size())
         rew[rew < self.cfg.rewards.max_contact_force] = 0
         rew[rew > self.cfg.rewards.max_contact_force] -= self.cfg.rewards.max_contact_force
+        print("cmd",self.commands[0])
+        command_x = self.commands[:, 0]
+        count = torch.sum(command_x == 0).item()
+        print("command_0_count",count)
+        print("walking_cmd_mask",self.get_walking_cmd_mask()[0])
+        rew1 = rew.clone()
         rew[~self.get_walking_cmd_mask()] = 0
+        rew2 = torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :],dim=-1)-self.cfg.rewards.max_contact_force).clip(0,400), dim=-1)
+        print("contact_force_size",self.contact_forces[:, self.feet_indices, :].size())
+        print("norm_size",torch.norm(self.contact_forces[:, self.feet_indices, :],dim=-1).size())
+        print("rew2_size",rew2.size())
+        print("rew",rew[0])
+        print("rew1",rew1[0])
+        print("rew2",rew2[0])
+        print("--------------------------")
         return rew
     
     def _reward_torque_penalty(self):

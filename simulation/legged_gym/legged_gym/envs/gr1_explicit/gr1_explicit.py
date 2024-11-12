@@ -121,7 +121,7 @@ class GR1_explicit(Humanoid):
             random_tensor_list.append(random_tensor_single)
         random_tensor = torch.cat([random_tensor_list[i] for i in range(len(self.cfg.commands.gait))],dim=1)
         current_sum = torch.sum(random_tensor, dim=1, keepdim=True) # 计算所有步态的总和时间
-        # scaled_tensor store proportion for each gait type
+        # led_tensor store proportion for each gait type
         scaled_tensor = random_tensor * (self.max_episode_length / current_sum) # 随机生成的时间标准化 总和等于max_episode_length
         scaled_tensor[:, 1:] = scaled_tensor[:, :-1].clone() # 标准化后的时间进行位移处理
         scaled_tensor[:,0] *= 0.0 # 第一个步态设置为0
@@ -139,12 +139,14 @@ class GR1_explicit(Humanoid):
         """
         for i in range(len(self.cfg.commands.gait)):
             env_ids = (self.episode_length_buf == self.gait_time[:,i]).nonzero(as_tuple=False).flatten()
-            if len(env_ids) == 0:
+            if len(env_ids) > 0:
                 # according to gait type create a name
                 name = '_resample_' + self.cfg.commands.gait[i] + '_command'
                 # get function from self based on name
                 resample_command = getattr(self, name)
                 resample_command(env_ids)
+        command_x = self.commands[:, 0]
+        count = torch.sum(command_x == 0).item()
 
     def _resample_stand_command(self, env_ids):
         self.commands[env_ids, 0] = torch.zeros(len(env_ids), device=self.device)
@@ -153,6 +155,8 @@ class GR1_explicit(Humanoid):
             self.commands[env_ids, 3] = torch.zeros(len(env_ids), device=self.device)
         else:
             self.commands[env_ids, 2] = torch.zeros(len(env_ids), device=self.device)
+        command_x = self.commands[:, 0]
+        count = torch.sum(command_x == 0).item()
 
     def _resample_walk_sagittal_command(self, env_ids):
         self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0],
@@ -193,6 +197,7 @@ class GR1_explicit(Humanoid):
         self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0],
                                                      self.command_ranges["lin_vel_y"][1], (len(env_ids), 1),
                                                      device=self.device).squeeze(1)
+
         if self.cfg.commands.heading_command:
             self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0],
                                                          self.command_ranges["heading"][1], (len(env_ids), 1),
@@ -202,6 +207,8 @@ class GR1_explicit(Humanoid):
                                                          self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1),
                                                          device=self.device).squeeze(1)
         # self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.05).unsqueeze(1)
+        command_x = self.commands[:, 0]
+        count = torch.sum(command_x == 0).item()
 
     def _post_physics_step_callback(self):
         """ Callback called before computing terminations, rewards, and observations
@@ -960,6 +967,11 @@ class GR1_explicit(Humanoid):
         return torch.sum(
             (torch.abs(self.torques) - self.torque_limits * self.cfg.rewards.soft_torque_limit).clip(min=0.), dim=1)
 
+    def _reward_orientation(self):
+        quat_mismatch = torch.exp(-torch.sum(torch.abs(self.base_euler_xyz[:, :2]),dim=1) * 10)
+        orientation = torch.exp(-torch.norm(self.projected_gravity[:, :2],dim=-1) * 20)
+        return (quat_mismatch + orientation) / 2
+
     def _reward_base_acc(self):
         """
         Computes the reward based on the base's acceleration. Penalizes high accelerations of the robot's base,
@@ -980,6 +992,10 @@ class GR1_explicit(Humanoid):
         yaw_roll = torch.norm(left_yaw_roll, dim=1) + torch.norm(right_yaw_roll, dim=1)
         yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
         return torch.exp(-yaw_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)
+
+    def _reward_feet_contact_forces(self):
+        rew = torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :],dim=-1)-self.cfg.rewards.max_contact_force).clip(0,400), dim=-1)
+        return rew
 
     def _reward_dof_vel(self):
         """

@@ -83,6 +83,7 @@ class OnPolicyRunnerExplicit:
         _, _ = self.env.reset()
 
     def learn(self, num_learning_iterations, init_at_random_ep_len=False):
+        entropy_coef = 0.001
         # initialize writer
         if self.log_dir is not None and self.writer is None:
             self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)
@@ -173,6 +174,7 @@ class OnPolicyRunnerExplicit:
         iteration_time = locs["collection_time"] + locs["learn_time"]
 
         ep_string = f""
+        wandb_dict = {}
         if locs["ep_infos"]:
             for key in locs["ep_infos"][0]:
                 infotensor = torch.tensor([], device=self.device)
@@ -184,6 +186,14 @@ class OnPolicyRunnerExplicit:
                         ep_info[key] = ep_info[key].unsqueeze(0)
                     infotensor = torch.cat((infotensor, ep_info[key].to(self.device)))
                 value = torch.mean(infotensor)
+                # wandb_dict['Episode_rew/' + key] = value
+                if "rew_" in key:
+                    wandb_dict['Episode_rew_metrics/' + key] = value
+                else:
+                    if "tracking" in key:
+                        wandb_dict['Episode_rew_tracking/' + key] = value
+                    elif "curriculum" in key:
+                        wandb_dict['Episode_curriculum/' + key] = value
                 self.writer.add_scalar("Episode/" + key, value, locs["it"])
                 ep_string += f"""{f'Mean episode {key}:':>{pad}} {value:.4f}\n"""
         mean_std = self.alg.actor_critic.std.mean()
@@ -192,6 +202,28 @@ class OnPolicyRunnerExplicit:
             * self.env.num_envs
             / (locs["collection_time"] + locs["learn_time"])
         )
+
+        # 将统计信息添加到WandB字典中
+        wandb_dict['Loss/value_func'] = locs['mean_value_loss']
+        wandb_dict['Loss/surrogate'] = locs['mean_surrogate_loss']
+        wandb_dict['Loss/entropy_coef'] = locs['entropy_coef']
+        wandb_dict['Loss/state_estimator'] = locs['mean_state_estimator_loss']
+        wandb_dict['Loss/learning_rate'] = self.alg.learning_rate
+
+        wandb_dict['Policy/mean_noise_std'] = mean_std.item()
+        wandb_dict['Perf/total_fps'] = fps
+        wandb_dict['Perf/collection time'] = locs['collection_time']
+        wandb_dict['Perf/learning_time'] = locs['learn_time']
+        if len(locs['rewbuffer']) > 0:
+            wandb_dict['Train/mean_reward'] = statistics.mean(locs['rewbuffer'])
+            # wandb_dict['Train/mean_reward_explr'] = statistics.mean(locs['rew_explr_buffer'])
+            # wandb_dict['Train/mean_reward_task'] = statistics.mean(locs['task_rew_buf'])
+            # wandb_dict['Train/mean_reward_entropy'] = statistics.mean(locs['rew_entropy_buffer'])
+            wandb_dict['Train/mean_episode_length'] = statistics.mean(locs['lenbuffer'])
+            # wandb_dict['Train/mean_reward/time', statistics.mean(locs['rewbuffer']), self.tot_time)
+            # wandb_dict['Train/mean_episode_length/time', statistics.mean(locs['lenbuffer']), self.tot_time)
+
+        wandb.log(wandb_dict, step=locs['it'])
 
         self.writer.add_scalar(
             "Loss/value_function", locs["mean_value_loss"], locs["it"]

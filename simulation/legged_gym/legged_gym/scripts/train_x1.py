@@ -33,11 +33,24 @@
 
 from legged_gym.envs import *
 from legged_gym.gym_utils import get_args, task_registry
+import wandb
 
 def train(args):
     env, env_cfg = task_registry.make_env(name=args.task, args=args)
     ppo_runner, train_cfg, log_dir = task_registry.make_alg_runner(env=env, name=args.task, args=args)
     # print("train_cfg",train_cfg)
+
+
+    robot_type = args.task.split('_')[0]
+    mode = "online"
+    wandb.init(project=args.proj_name,name=args.exptid, mode=mode,dir="../../logs")
+    wandb.save(LEGGED_GYM_ENVS_DIR + "/base/legged_robot_config.py",policy="now")
+    wandb.save(LEGGED_GYM_ENVS_DIR + "/base/legged_robot.py",policy="now")
+    wandb.save(LEGGED_GYM_ENVS_DIR + "/base/humanoid_config.py",policy="now")
+    wandb.save(LEGGED_GYM_ENVS_DIR + "/base/humanoid.py",policy="now")
+    wandb.save(LEGGED_GYM_ENVS_DIR + "/{}/{}.py".format(robot_type,args.task),policy="now")
+
+
 
     ppo_runner.learn(num_learning_iterations=train_cfg.runner.max_iterations, init_at_random_ep_len=False)
 
