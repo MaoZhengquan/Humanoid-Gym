@@ -108,7 +108,7 @@ class GR1_explicitCfg(HumanoidCfg):
         restitution = 0.
 
     class noise(HumanoidCfg.noise):
-        add_noise = True
+        add_noise = False
         noise_increasing_steps = 5000
 
         class noise_scales:
@@ -266,13 +266,13 @@ class GR1_explicitCfg(HumanoidCfg):
         cycle_time = 0.8
         double_support_threshold = 0.5
         only_positive_rewards = True
-        tracking_sigma = 0.2
+        tracking_sigma = 5
         tracking_sigma_ang = 0.125
         max_contact_force = 500  # Forces above this value are penalized
         soft_torque_limit = 0.9
 
     class domain_rand(LeggedRobotCfg.domain_rand):
-        domain_rand_general = True  # manually set this, setting from parser does not work;
+        domain_rand_general = False  # manually set this, setting from parser does not work;
 
         randomize_gravity = (True and domain_rand_general)
         gravity_rand_interval_s = 4
@@ -345,7 +345,7 @@ class GR1_explicitCfg(HumanoidCfg):
         ang_vel_clip = 0.1
         lin_vel_clip = 0.1
         resampling_time = 25.  # time before command are changed[s]
-        gait = ["walk_omnidirectional", "stand" ,"walk_omnidirectional", "stand", "walk_omnidirectional"] # gait type during training
+        gait = ["walk_omnidirectional", "stand", "walk_omnidirectional"] # gait type during training
         # proportion during whole life time
         gait_time_range = {"walk_sagittal": [2,6],
                            "walk_lateral": [2,6],
@@ -389,8 +389,8 @@ class GR1_explicitCfgPPO(HumanoidCfgPPO):
         use_clipped_value_loss = True
         clip_param = 0.2
         entropy_coef = 0.001
-        learning_rate = 2e-4
-        num_learning_epochs = 2
+        learning_rate = 5e-5
+        num_learning_epochs = 5
         num_mini_batches = 4
         gamma = 0.994
         lam = 0.9

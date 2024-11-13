@@ -40,6 +40,7 @@ from rsl_rl.runners import OnPolicyRunner, OnPolicyRunnerExplicit
 from legged_gym import LEGGED_GYM_ROOT_DIR, LEGGED_GYM_ENVS_DIR
 from .helpers import get_args, update_cfg_from_args, class_to_dict, get_load_path, set_seed, parse_sim_params
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
+from ..scripts.train import train
 
 
 class TaskRegistry():
@@ -154,7 +155,7 @@ class TaskRegistry():
         print("env_cfg_dict",env_cfg_dict.keys())
 
         all_cfg = {**train_cfg_dict, **env_cfg_dict}
-        print("all_cfg",all_cfg['policy']['fix_action_std'])
+        # print("all_cfg",all_cfg['policy']['fix_action_std'])
 
         runner_class = eval(train_cfg_dict["runner_class_name"])
         runner = runner_class(env, all_cfg, log_dir, device=args.rl_device)
@@ -162,6 +163,10 @@ class TaskRegistry():
         resume = train_cfg.runner.resume
         if resume:
             # load previously trained model
+            print("log_root", log_root)
+            print("load_run", train_cfg.runner.load_run)
+            print("checkpoint", train_cfg.runner.checkpoint)
+
             resume_path = get_load_path(log_root, load_run=train_cfg.runner.load_run,
                                         checkpoint=train_cfg.runner.checkpoint)
             print(f"Loading model from: {resume_path}")

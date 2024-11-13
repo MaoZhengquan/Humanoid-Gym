@@ -101,6 +101,8 @@ def parse_sim_params(args, cfg):
     return sim_params
 
 def get_load_path(root, load_run=-1, checkpoint=-1, model_name_include="model"):
+    root = os.path.join(root, load_run)
+    print("root", root)
     if not os.path.isdir(root):  # use first 4 chars to mactch the run name
         model_name_cand = os.path.basename(root)
         model_parent = os.path.dirname(root)

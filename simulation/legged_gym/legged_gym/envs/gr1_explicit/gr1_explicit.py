@@ -1,3 +1,4 @@
+from inspect import stack
 
 from legged_gym import LEGGED_GYM_ROOT_DIR, envs
 from time import time
@@ -145,8 +146,7 @@ class GR1_explicit(Humanoid):
                 # get function from self based on name
                 resample_command = getattr(self, name)
                 resample_command(env_ids)
-        command_x = self.commands[:, 0]
-        count = torch.sum(command_x == 0).item()
+
 
     def _resample_stand_command(self, env_ids):
         self.commands[env_ids, 0] = torch.zeros(len(env_ids), device=self.device)
@@ -642,6 +642,8 @@ class GR1_explicit(Humanoid):
         if self.cfg.env.send_timeouts:
             self.extras["time_outs"] = self.time_out_buf
 
+        count = torch.sum(torch.norm(self.commands[:, :3], dim=1) < self.cfg.commands.stand_com_threshold).item()
+        self.extras["episode"]["count_command"] = count
         # fix reset gravity bug
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_net_contact_force_tensor(self.sim)
@@ -1000,8 +1002,45 @@ class GR1_explicit(Humanoid):
         yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
         return torch.exp(-yaw_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)
 
+    def _reward_tracking_lin_vel_exp(self):
+        stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
+        # lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        lin_vel_error_square = torch.sum(torch.square(
+            self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        lin_vel_error_abs = torch.sum(torch.abs(
+            self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        r_square = torch.exp(-lin_vel_error_square * self.cfg.rewards.tracking_sigma)
+        r_abs = torch.exp(-lin_vel_error_abs * self.cfg.rewards.tracking_sigma * 2)
+        r = torch.where(stand_command, r_abs, r_square)
+        # r = torch.exp(-lin_vel_error/self.cfg.rewards.tracking_sigma)
+        return r
+
+    def _reward_tracking_ang_vel(self):
+        stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
+        ang_vel_error_square = torch.square(
+            self.commands[:, 2] - self.base_ang_vel[:, 2])
+        ang_vel_error_abs = torch.abs(
+            self.commands[:, 2] - self.base_ang_vel[:, 2])
+        r_square = torch.exp(-ang_vel_error_square * self.cfg.rewards.tracking_sigma)
+        r_abs = torch.exp(-ang_vel_error_abs * self.cfg.rewards.tracking_sigma * 2)
+        r = torch.where(stand_command, r_abs, r_square)
+        # r = torch.exp(-ang_vel_error/self.cfg.rewards.tracking_sigma_ang)
+        # ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
+        return r
+
+    def _reward_feet_contact_number(self):
+        contact = self.contact_forces[:, self.feet_indices, 2] > 5.
+        stance_mask = self._get_stance_mask().clone()
+        stance_mask[torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold] = 1
+        reward = torch.where(contact == stance_mask, 1, -0.3)
+        return torch.mean(reward, dim=1)
+
     def _reward_feet_contact_forces(self):
-        rew = torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :],dim=-1)-self.cfg.rewards.max_contact_force).clip(0,400), dim=-1)
+        # rew = torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :],dim=-1)-self.cfg.rewards.max_contact_force).clip(0,400), dim=-1)
+        rew = torch.norm(self.contact_forces[:, self.feet_indices, 2], dim=-1)
+        rew[rew < self.cfg.rewards.max_contact_force] = 0
+        rew[rew > self.cfg.rewards.max_contact_force] -= self.cfg.rewards.max_contact_force
+        rew[~self.get_walking_cmd_mask()] = 0
         return rew
 
     def _reward_dof_vel(self):

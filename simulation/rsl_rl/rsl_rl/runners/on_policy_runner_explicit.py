@@ -179,7 +179,6 @@ class OnPolicyRunnerExplicit:
             for key in locs["ep_infos"][0]:
                 infotensor = torch.tensor([], device=self.device)
                 for ep_info in locs["ep_infos"]:
-                    # print("ep_info[key]",ep_info[key])
                     # handle scalar and zero dimensional tensor infos
                     if not isinstance(ep_info[key], torch.Tensor):
                         ep_info[key] = torch.Tensor([ep_info[key]])
@@ -193,10 +192,13 @@ class OnPolicyRunnerExplicit:
                 else:
                     if "tracking" in key:
                         wandb_dict['Episode_rew_tracking/' + key] = value
-                    elif "curriculum" in key:
+                    elif "command_x" in key:
                         wandb_dict['Episode_curriculum/' + key] = value
+                    elif "count_command" in key:
+                        wandb_dict['Stand_still/' + key] = ep_info["count_command"]
                     else:
                         wandb_dict['Episode_rew_regularization/' + key] = value
+
                     ep_string += f"""{f'Mean episode {key}:':>{pad}} {value:.4f}\n""" # 不打印输出metrics
 
                 # self.writer.add_scalar("Episode/" + key, value, locs["it"])
@@ -213,7 +215,6 @@ class OnPolicyRunnerExplicit:
         wandb_dict['Loss/entropy_coef'] = locs['entropy_coef']
         wandb_dict['Loss/state_estimator'] = locs['mean_state_estimator_loss']
         wandb_dict['Loss/learning_rate'] = self.alg.learning_rate
-
         wandb_dict['Policy/mean_noise_std'] = mean_std.item()
         wandb_dict['Perf/total_fps'] = fps
         wandb_dict['Perf/collection time'] = locs['collection_time']
@@ -238,35 +239,6 @@ class OnPolicyRunnerExplicit:
         self.writer.add_scalar(
             "Loss/state_estimator", locs["mean_state_estimator_loss"], locs["it"]
         )
-        self.writer.add_scalar("Loss/learning_rate", self.alg.learning_rate, locs["it"])
-        self.writer.add_scalar("Policy/mean_noise_std", mean_std.item(), locs["it"])
-        self.writer.add_scalar("Perf/total_fps", fps, locs["it"])
-        self.writer.add_scalar(
-            "Perf/collection time", locs["collection_time"], locs["it"]
-        )
-        self.writer.add_scalar("Perf/learning_time", locs["learn_time"], locs["it"])
-        if len(locs["rewbuffer"]) > 0:
-            self.writer.add_scalar(
-                "Train/mean_reward", statistics.mean(locs["rewbuffer"]), locs["it"]
-            )
-            self.writer.add_scalar(
-                "Train/mean_episode_length",
-                statistics.mean(locs["lenbuffer"]),
-                locs["it"],
-            )
-            self.writer.add_scalar(
-                "Train/mean_reward/time",
-                statistics.mean(locs["rewbuffer"]),
-                self.tot_time,
-            )
-            self.writer.add_scalar(
-                "Train/mean_episode_length/time",
-                statistics.mean(locs["lenbuffer"]),
-                self.tot_time,
-            )
-        for i in range(47):
-            self.writer.add_scalar('Observation/obs_mean_' + str(i), locs['obs_mean'][i], locs['it'])
-            self.writer.add_scalar('Observation/obs_std_' + str(i), locs['obs_std'][i], locs['it'])
 
         logstr = f" \033[1m Learning iteration {locs['it']}/{self.current_learning_iteration + locs['num_learning_iterations']} \033[0m "
 

@@ -133,7 +133,7 @@ def play(args):
         actions = policy(obs.detach())  # * 0.
 
         if FIX_COMMAND:
-            env.commands[:, 0] = 0.5  # 1.0
+            env.commands[:, 0] = 0.0  # 1.0
             env.commands[:, 1] = 0
             env.commands[:, 2] = 0
             env.commands[:, 3] = 0.
@@ -155,13 +155,16 @@ def play(args):
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             video.write(img[..., :3])
 
+        # print("num_envs", env_cfg.env.num_envs)
+        # print("size", env.rigid_body_states[robot_index, 2].size())
+        # print("size_index", env.rigid_body_states[robot_index].size())
         if i > stop_state_log * 0.2 and i < stop_state_log:
             dict = {
-                'base_height': env.root_states[robot_index, 2].item(),
-                'foot_z_l': env.rigid_state[robot_index, 4, 2].item(),
-                'foot_z_r': env.rigid_state[robot_index, 9, 2].item(),
-                'foot_forcez_l': env.contact_forces[robot_index, 4, 2].item(),
-                'foot_forcez_r': env.contact_forces[robot_index, 9, 2].item(),
+                'base_height': env.rigid_body_states[robot_index, 0, 2].item(),
+                'foot_z_l': env.rigid_body_states[robot_index, 5, 2].item(),
+                'foot_z_r': env.rigid_body_states[robot_index, 11, 2].item(),
+                'foot_forcez_l': env.contact_forces[robot_index, 5, 2].item(),
+                'foot_forcez_r': env.contact_forces[robot_index, 11, 2].item(),
                 'base_vel_x': env.base_lin_vel[robot_index, 0].item(),
                 'command_x': x_vel_cmd,
                 'base_vel_y': env.base_lin_vel[robot_index, 1].item(),

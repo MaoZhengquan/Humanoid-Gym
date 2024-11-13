@@ -595,19 +595,14 @@ class Humanoid(LeggedRobot):
         
     def _reward_alive(self):
         return 1.
-    
+
     def _reward_tracking_lin_vel_exp(self):
-        stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
-        # lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
-        lin_vel_error_square = torch.sum(torch.square(
-            self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
-        lin_vel_error_abs = torch.sum(torch.abs(
-            self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
-        r_square = torch.exp(-lin_vel_error_square * self.cfg.rewards.tracking_sigma)
-        r_abs = torch.exp(-lin_vel_error_abs * self.cfg.rewards.tracking_sigma * 2)
-        r = torch.where(stand_command, r_abs, r_square)
-        # r = torch.exp(-lin_vel_error/self.cfg.rewards.tracking_sigma)
-        return r
+        lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        return torch.exp(-lin_vel_error / self.cfg.rewards.tracking_sigma)
+
+    def _reward_tracking_ang_vel(self):
+        ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
+        return torch.exp(-ang_vel_error / self.cfg.rewards.tracking_sigma_ang)
 
     def _reward_track_vel_hard(self):
         """
@@ -639,19 +634,6 @@ class Humanoid(LeggedRobot):
         c_update = (lin_mismatch + ang_mismatch) / 2.
 
         return c_update
-
-    def _reward_tracking_ang_vel(self):
-        stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
-        ang_vel_error_square = torch.square(
-            self.commands[:, 2] - self.base_ang_vel[:, 2])
-        ang_vel_error_abs = torch.abs(
-            self.commands[:, 2] - self.base_ang_vel[:, 2])
-        r_square = torch.exp(-ang_vel_error_square * self.cfg.rewards.tracking_sigma)
-        r_abs = torch.exp(-ang_vel_error_abs * self.cfg.rewards.tracking_sigma * 2)
-        r = torch.where(stand_command, r_abs, r_square)
-        # r = torch.exp(-ang_vel_error/self.cfg.rewards.tracking_sigma_ang)
-        # ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
-        return r
     
     def _reward_feet_air_time(self):
         contact = self.contact_forces[:, self.feet_indices, 2] > 5.
@@ -746,25 +728,9 @@ class Humanoid(LeggedRobot):
     
     def _reward_feet_contact_forces(self):
         rew = torch.norm(self.contact_forces[:, self.feet_indices, 2], dim=-1)
-        print("contact_force",self.contact_forces[0, self.feet_indices, :])
-        print("rew_size",rew.size())
         rew[rew < self.cfg.rewards.max_contact_force] = 0
         rew[rew > self.cfg.rewards.max_contact_force] -= self.cfg.rewards.max_contact_force
-        print("cmd",self.commands[0])
-        command_x = self.commands[:, 0]
-        count = torch.sum(command_x == 0).item()
-        print("command_0_count",count)
-        print("walking_cmd_mask",self.get_walking_cmd_mask()[0])
-        rew1 = rew.clone()
         rew[~self.get_walking_cmd_mask()] = 0
-        rew2 = torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :],dim=-1)-self.cfg.rewards.max_contact_force).clip(0,400), dim=-1)
-        print("contact_force_size",self.contact_forces[:, self.feet_indices, :].size())
-        print("norm_size",torch.norm(self.contact_forces[:, self.feet_indices, :],dim=-1).size())
-        print("rew2_size",rew2.size())
-        print("rew",rew[0])
-        print("rew1",rew1[0])
-        print("rew2",rew2[0])
-        print("--------------------------")
         return rew
     
     def _reward_torque_penalty(self):
