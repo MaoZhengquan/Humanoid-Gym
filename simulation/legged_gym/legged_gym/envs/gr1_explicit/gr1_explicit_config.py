@@ -108,7 +108,7 @@ class GR1_explicitCfg(HumanoidCfg):
         restitution = 0.
 
     class noise(HumanoidCfg.noise):
-        add_noise = False
+        add_noise = True
         noise_increasing_steps = 5000
 
         class noise_scales:
@@ -120,7 +120,7 @@ class GR1_explicitCfg(HumanoidCfg):
             imu = 0.1
 
     class init_state(HumanoidCfg.init_state):
-        pos = [0, 0, 0.95]
+        pos = [0, 0, 0.90]
         default_joint_angles = {
             'l_hip_roll': 0.0,
             'l_hip_yaw': 0.,
@@ -179,10 +179,10 @@ class GR1_explicitCfg(HumanoidCfg):
         }
 
         action_scale = 0.5
-        decimation = 4 # policy 100Hz
+        decimation = 10 # policy 100Hz
 
     class sim(HumanoidCfg.sim):
-        dt = 0.005 # pd 1000Hz
+        dt = 0.001 # pd 1000Hz
         substeps = 1
         up_axis = 1
 
@@ -239,40 +239,42 @@ class GR1_explicitCfg(HumanoidCfg):
             # base pose
             default_joint_pos = 1.0
             orientation = 1.0
-            feet_rotation = 0.3
             base_acc = 0.2
+            base_height = 0.2
 
             # energy
-            action_smoothness = -0.002
+            action_smoothness = -0.001
             torques = -8e-9
             dof_vel = -2e-8
             dof_acc = -1e-7
             collision = -1.0
-            stand_still = 2.5
+            stand_still = 2.0
 
             # alive = 2.0
             # feet_stumble = -1.25
 
             # limits
-            dof_vel_limits = -1.
-            dof_pos_limits = -10.0
+            # dof_vel_limits = -1.
+            # dof_pos_limits = -5.0
             dof_torque_limits = -0.1
 
         min_dist = 0.2
         max_dist = 0.5
         max_knee_dist = 0.25
-        target_joint_pos_scale = 0.17
+        target_joint_pos_scale = 0.20
+        feet_to_ankle_distance = 0.045
         target_feet_height = 0.1
-        cycle_time = 0.8
+        cycle_time = 0.7
         double_support_threshold = 0.5
         only_positive_rewards = True
         tracking_sigma = 5
         tracking_sigma_ang = 0.125
+        base_height_target = 0.886
         max_contact_force = 500  # Forces above this value are penalized
         soft_torque_limit = 0.9
 
     class domain_rand(LeggedRobotCfg.domain_rand):
-        domain_rand_general = False  # manually set this, setting from parser does not work;
+        domain_rand_general = True  # manually set this, setting from parser does not work;
 
         randomize_gravity = (True and domain_rand_general)
         gravity_rand_interval_s = 4
@@ -338,7 +340,7 @@ class GR1_explicitCfg(HumanoidCfg):
         ext_force_interval_s = 10
 
     class commands:
-        curriculum = True
+        curriculum = False
         max_curriculum = 1.5
         # Vers: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
         num_commands = 4
@@ -359,9 +361,9 @@ class GR1_explicitCfg(HumanoidCfg):
 
 
         class ranges:
-            lin_vel_x = [-0.4, 1.2]  # min max [m/s]
-            lin_vel_y = [-0.4, 0.4]
-            ang_vel_yaw = [-0.6, 0.6]  # min max [rad/s]
+            lin_vel_x = [-0.4, 0.6]  # min max [m/s]
+            lin_vel_y = [-0.3, 0.3]
+            ang_vel_yaw = [-0.3, 0.3]  # min max [rad/s]
             heading = [-3.14, 3.14]
 
 class GR1_explicitCfgPPO(HumanoidCfgPPO):
@@ -388,13 +390,13 @@ class GR1_explicitCfgPPO(HumanoidCfgPPO):
         value_loss_coef = 1.0
         use_clipped_value_loss = True
         clip_param = 0.2
-        entropy_coef = 0.001
-        learning_rate = 5e-5
+        entropy_coef = 0.01
+        learning_rate = 2e-4
         num_learning_epochs = 5
         num_mini_batches = 4
         gamma = 0.994
         lam = 0.9
-        desired_kl = 0.008
+        desired_kl = 0.01
         num_mini_batches = 4
         max_grad_norm = 1.
         schedule = 'adaptive'  # could be adaptive, fixed
@@ -408,7 +410,7 @@ class GR1_explicitCfgPPO(HumanoidCfgPPO):
         # grad_penalty_coef_schedule = [0.002, 0.002, 700, 1000]
 
     class policy(HumanoidCfgPPO.policy):
-        action_std = [0.3, 0.3, 0.3, 0.4, 0.2] * 2
+        action_std = [0.3, 0.3, 0.5, 0.4, 0.2] * 2
         fix_action_std = True
         actor_hidden_dims = [512, 256, 128]
         critic_hidden_dims = [768, 256, 128]

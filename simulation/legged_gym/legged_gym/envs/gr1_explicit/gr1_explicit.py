@@ -1057,9 +1057,21 @@ class GR1_explicit(Humanoid):
         """
         return torch.sum(torch.square((self.last_dof_vel - self.dof_vel) / self.dt), dim=1)
 
-    def _reward_feet_rotation(self):
-        feet_euler_xyz = self.feet_euler_xyz
-        rotation = torch.sum(torch.square(feet_euler_xyz[:, :, :2]), dim=[1, 2])
-        # rotation = torch.sum(torch.square(feet_euler_xyz[:,:,1]),dim=1)
-        r = torch.exp(-rotation * 15)
-        return r
+    def _reward_base_height(self):
+        """
+        Calculates the reward based on the robot's base height. Penalizes deviation from a target base height.
+        The reward is computed based on the height difference between the robot's base and the average height
+        of its feet when they are in contact with the ground.
+        """
+        stance_mask = self._get_stance_mask()
+        measured_heights = torch.sum(
+            self.rigid_body_states[:, self.feet_indices, 2] * stance_mask, dim=1) / torch.sum(stance_mask, dim=1)
+        base_height = self.root_states[:, 2] - (measured_heights - self.cfg.rewards.feet_to_ankle_distance)
+        return torch.exp(-torch.abs(base_height - self.cfg.rewards.base_height_target) * 100)
+
+    # def _reward_feet_rotation(self):
+    #     feet_euler_xyz = self.feet_euler_xyz
+    #     rotation = torch.sum(torch.square(feet_euler_xyz[:, :, :2]), dim=[1, 2])
+    #     # rotation = torch.sum(torch.square(feet_euler_xyz[:,:,1]),dim=1)
+    #     r = torch.exp(-rotation * 15)
+    #     return r

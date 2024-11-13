@@ -47,7 +47,7 @@ from datetime import datetime
 
 from threading import Thread
 
-x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 0.0, 0.0, 0.0
+x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 0.5, 0.0, 0.0
 
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
@@ -133,7 +133,7 @@ def play(args):
         actions = policy(obs.detach())  # * 0.
 
         if FIX_COMMAND:
-            env.commands[:, 0] = 0.0  # 1.0
+            env.commands[:, 0] = 0.5  # 1.0
             env.commands[:, 1] = 0
             env.commands[:, 2] = 0
             env.commands[:, 3] = 0.
@@ -158,6 +158,7 @@ def play(args):
         # print("num_envs", env_cfg.env.num_envs)
         # print("size", env.rigid_body_states[robot_index, 2].size())
         # print("size_index", env.rigid_body_states[robot_index].size())
+        print("base_height", torch.mean(env.rigid_body_states[:, 0 , 2], dim=-1))
         if i > stop_state_log * 0.2 and i < stop_state_log:
             dict = {
                 'base_height': env.rigid_body_states[robot_index, 0, 2].item(),
