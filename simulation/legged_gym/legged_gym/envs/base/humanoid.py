@@ -129,7 +129,19 @@ class Humanoid(LeggedRobot):
             imgs.append(img.reshape([w, h // 4, 4]))
                 
         return imgs
-    
+
+    def _draw_base(self, env_ids):
+        # if hasattr(self, 'feet_at_edge'):
+        edge_geom = gymutil.WireframeSphereGeometry(0.2, 32, 32, None, color=(1, 0, 0))
+
+        base_pos = self.rigid_body_states[env_ids[:, None], 0, :3]
+        for id in range(len(env_ids)):
+            idx = env_ids[id]
+            pose = gymapi.Transform(gymapi.Vec3(base_pos[id, 0, 0], base_pos[id, 0, 1],
+                                                base_pos[id, 0, 2] + 0.5), r=None)
+
+            gymutil.draw_lines(edge_geom, self.gym, self.viewer, self.envs[idx], pose)
+            # print("draw stand_command agent: id: {},pos: {}".format(env_ids[id], base_pos[id, 0]))
                               
     def draw_goal(self, id=None):
         sphere_geom_lin = gymutil.WireframeSphereGeometry(0.01, 32, 32, None, color=(1, 0, 0))
@@ -325,6 +337,14 @@ class Humanoid(LeggedRobot):
             elif torch.mean(self.episode_length.float()).item() < 50.:
                 self.cfg.rewards.regularization_scale *= (1. - self.cfg.rewards.regularization_scale_gamma)
             self.cfg.rewards.regularization_scale = max(min(self.cfg.rewards.regularization_scale, self.cfg.rewards.regularization_scale_range[1]), self.cfg.rewards.regularization_scale_range[0])
+
+        if self.viewer and self.enable_viewer_sync and self.debug_viz:
+            stand_indices = \
+                torch.where(torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)[0]
+            self.gym.clear_lines(self.viewer)
+            # self.draw_goal(id=stand_indices)
+            self._draw_base(stand_indices)
+
 
         # if self.viewer and self.enable_viewer_sync and self.debug_viz:
         #     self.gym.clear_lines(self.viewer)
