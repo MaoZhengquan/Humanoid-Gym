@@ -112,12 +112,12 @@ class GR1_explicitCfg(HumanoidCfg):
         noise_increasing_steps = 5000
 
         class noise_scales:
-            dof_pos = 0.2
-            dof_vel = 1.5
+            dof_pos = 0.01
+            dof_vel = 0.1
             lin_vel = 0.1
             ang_vel = 0.05
             gravity = 0.05
-            imu = 0.1
+            imu = 0.05
 
     class init_state(HumanoidCfg.init_state):
         pos = [0, 0, 0.90]
@@ -261,7 +261,7 @@ class GR1_explicitCfg(HumanoidCfg):
         min_dist = 0.2
         max_dist = 0.5
         max_knee_dist = 0.25
-        target_joint_pos_scale = 0.20
+        target_joint_pos_scale = 0.17
         feet_to_ankle_distance = 0.045
         target_feet_height = 0.1
         cycle_time = 0.7
@@ -400,6 +400,7 @@ class GR1_explicitCfgPPO(HumanoidCfgPPO):
         num_mini_batches = 4
         max_grad_norm = 1.
         schedule = 'adaptive'  # could be adaptive, fixed
+        grad_penalty_coef_schedule = [0.002, 0.002, 700, 100]
 
         if GR1_explicitCfg.terrain.measure_heights:
             lin_vel_idx = (GR1_explicitCfg.env.single_num_privileged_obs + GR1_explicitCfg.terrain.num_height * GR1_explicitCfg.env.c_frame_stack - 1)
@@ -410,8 +411,9 @@ class GR1_explicitCfgPPO(HumanoidCfgPPO):
         # grad_penalty_coef_schedule = [0.002, 0.002, 700, 1000]
 
     class policy(HumanoidCfgPPO.policy):
+        init_noise_std = 1.0
         action_std = [0.3, 0.3, 0.5, 0.4, 0.2] * 2
-        fix_action_std = True
+        fix_action_std = False
         actor_hidden_dims = [512, 256, 128]
         critic_hidden_dims = [768, 256, 128]
         state_estimator_hidden_dims = [256, 128, 64]

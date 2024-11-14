@@ -84,6 +84,7 @@ class OnPolicyRunnerExplicit:
 
     def learn(self, num_learning_iterations, init_at_random_ep_len=False):
         entropy_coef = 0.001
+        grad_penalty_coef = 0
         # initialize writer
         if self.log_dir is not None and self.writer is None:
             self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)
@@ -152,7 +153,7 @@ class OnPolicyRunnerExplicit:
                 start = stop
                 self.alg.compute_returns(critic_obs)
 
-            mean_value_loss, mean_surrogate_loss, mean_state_estimator_loss = self.alg.update()
+            mean_value_loss, mean_surrogate_loss, mean_state_estimator_loss, mean_grad_penalty_loss, grad_penalty_coef = self.alg.update()
             stop = time.time()
             learn_time = stop - start
             if self.log_dir is not None:
@@ -213,8 +214,10 @@ class OnPolicyRunnerExplicit:
         wandb_dict['Loss/value_func'] = locs['mean_value_loss']
         wandb_dict['Loss/surrogate'] = locs['mean_surrogate_loss']
         wandb_dict['Loss/entropy_coef'] = locs['entropy_coef']
+        wandb_dict['Loss/grad_penalty_loss'] = locs['mean_grad_penalty_loss']
         wandb_dict['Loss/state_estimator'] = locs['mean_state_estimator_loss']
         wandb_dict['Loss/learning_rate'] = self.alg.learning_rate
+        wandb_dict['Scale/grad_penalty_coef'] = locs['grad_penalty_coef']
         wandb_dict['Policy/mean_noise_std'] = mean_std.item()
         wandb_dict['Perf/total_fps'] = fps
         wandb_dict['Perf/collection time'] = locs['collection_time']
@@ -241,6 +244,7 @@ class OnPolicyRunnerExplicit:
         )
 
         logstr = f" \033[1m Learning iteration {locs['it']}/{self.current_learning_iteration + locs['num_learning_iterations']} \033[0m "
+        gp_scale_str = f"""{'Grad_penalty_coef:':>{pad}} {locs['grad_penalty_coef']:.4f}\n"""
 
         if len(locs["rewbuffer"]) > 0:
             log_string = (
@@ -250,6 +254,7 @@ class OnPolicyRunnerExplicit:
                     'collection_time']:.3f}s, learning {locs['learn_time']:.3f}s)\n"""
                 f"""{'Value function loss:':>{pad}} {locs['mean_value_loss']:.4f}\n"""
                 f"""{'Surrogate loss:':>{pad}} {locs['mean_surrogate_loss']:.4f}\n"""
+                f"""{'Grad penalty loss:':>{pad}} {locs['mean_grad_penalty_loss']:.4f}\n"""
                 f"""{'State estimator loss:':>{pad}} {locs['mean_state_estimator_loss']:.4f}\n"""
                 f"""{'Mean action noise std:':>{pad}} {mean_std.item():.2f}\n"""
                 f"""{'Mean reward:':>{pad}} {statistics.mean(locs['rewbuffer']):.2f}\n"""
@@ -271,6 +276,7 @@ class OnPolicyRunnerExplicit:
             #   f"""{'Mean episode length/episode:':>{pad}} {locs['mean_trajectory_length']:.2f}\n""")
 
         log_string += ep_string
+
         log_string += (
             f"""{'-' * width}\n"""
             f"""{'Total timesteps:':>{pad}} {self.tot_timesteps}\n"""

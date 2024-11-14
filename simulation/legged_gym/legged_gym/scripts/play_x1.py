@@ -52,7 +52,7 @@ x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 0.0, 0.0, 0.0
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
-    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 10)
+    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 1)
     # env_cfg.terrain.mesh_type = 'trimesh'
     env_cfg.terrain.mesh_type = 'plane'
     env_cfg.terrain.num_rows = 5
@@ -144,8 +144,10 @@ def play(args):
             env.commands[:, 2] = yaw_vel_cmd
             env.commands[:, 3] = 0.
 
-        obs, critic_obs, rews, dones, infos = env.step(actions.detach())
 
+        obs, critic_obs, rews, dones, infos = env.step(actions.detach())
+        print("left", obs[0,0])
+        print("right", obs[0,1])
         if RENDER:
             env.gym.fetch_results(env.sim, True)
             env.gym.step_graphics(env.sim)

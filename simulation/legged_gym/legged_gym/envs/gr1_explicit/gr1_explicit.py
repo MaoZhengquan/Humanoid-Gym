@@ -86,6 +86,7 @@ class GR1_explicit(Humanoid):
         cycle_time = self.cfg.rewards.cycle_time
         if self.cfg.commands.sw_switch:
             stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
+            print("stand_command", stand_command)
             self.phase_length_buf[stand_command] = 0 # set this as 0 for which env is standing
             phase = (self.phase_length_buf * self.dt / cycle_time + self.gait_start) * (~stand_command)
         else:
@@ -948,7 +949,12 @@ class GR1_explicit(Humanoid):
     def _reward_stand_still(self):
         # penalize motion at zero commands
         stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
-        r = torch.exp(-torch.sum(torch.square(self.dof_pos - self.default_dof_pos), dim=1))
+        stand_pos = self.default_dof_pos.clone()
+        stand_pos[:,[2,8]] = 0.25
+        stand_pos[:,[3,9]] = -0.5
+        stand_pos[:,[4,10]] = 0.25
+        r = torch.exp(-torch.sum(torch.square(self.dof_pos - stand_pos), dim=1))
+        # r = torch.exp(-torch.sum(torch.square(self.dof_pos - self.default_dof_pos), dim=1))
         r = torch.where(stand_command, r.clone(),
                         torch.zeros_like(r))
         return r
@@ -1064,10 +1070,14 @@ class GR1_explicit(Humanoid):
         of its feet when they are in contact with the ground.
         """
         stance_mask = self._get_stance_mask()
+        stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
+
         measured_heights = torch.sum(
             self.rigid_body_states[:, self.feet_indices, 2] * stance_mask, dim=1) / torch.sum(stance_mask, dim=1)
         base_height = self.root_states[:, 2] - (measured_heights - self.cfg.rewards.feet_to_ankle_distance)
-        return torch.exp(-torch.abs(base_height - self.cfg.rewards.base_height_target) * 100)
+        target_height = torch.ones_like(base_height) * self.cfg.rewards.base_height_target
+        target_height[stand_command] = 0.895
+        return torch.exp(-torch.abs(base_height - target_height) * 100)
 
     # def _reward_feet_rotation(self):
     #     feet_euler_xyz = self.feet_euler_xyz

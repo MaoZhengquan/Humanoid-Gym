@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from numpy.lib.function_base import gradient
 
 from rsl_rl.modules import ActorCriticExplicit
 from rsl_rl.storage.rollout_storage_x1 import RolloutStorage
@@ -23,6 +24,7 @@ class PPOEXPLICIT():
                  schedule="fixed",
                  desired_kl=0.01,
                  device='cpu',
+                 grad_penalty_coef_schedule = [0, 0, 0],
                  ):
         self.device = device
         self.desired_kl = desired_kl
@@ -51,6 +53,10 @@ class PPOEXPLICIT():
         self.use_clipped_value_loss = use_clipped_value_loss
         self.num_short_obs = self.actor_critic.num_short_obs
         self.lin_vel_idx = lin_vel_idx
+
+        # Adaptation
+        self.gradient_penalty_coef_schedule = grad_penalty_coef_schedule
+        self.counter = 0
 
     def init_storage(self, num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, action_shape):
         self.storage = RolloutStorage(num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, action_shape, None, self.device)
@@ -89,10 +95,16 @@ class PPOEXPLICIT():
         last_values = self.actor_critic.evaluate(last_critic_obs).detach()
         self.storage.compute_returns(last_values, self.gamma, self.lam)
 
+    def _calc_grad_penalty(self, obs_batch, actions_log_prob_batch):
+        grad_log_prob = torch.autograd.grad(actions_log_prob_batch.sum(), obs_batch, create_graph=True)[0]
+        gradient_penalty_loss = torch.sum(torch.square(grad_log_prob), dim=-1).mean()
+        return gradient_penalty_loss
+
     def update(self):
         mean_value_loss = 0
         mean_surrogate_loss = 0
         mean_state_estimator_loss = 0
+        mean_grad_penalty_loss = 0
 
         generator = self.storage.mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
         for obs_batch, critic_obs_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, \
@@ -109,6 +121,12 @@ class PPOEXPLICIT():
                 mu_batch = self.actor_critic.action_mean
                 sigma_batch = self.actor_critic.action_std
                 entropy_batch = self.actor_critic.entropy
+
+                # Calculate the gradient penalty loss
+                gradient_penalty_loss = self._calc_grad_penalty(obs_batch, actions_log_prob_batch)
+
+                gradient_stage = min(max(self.counter - self.gradient_penalty_coef_schedule[2], 0) / self.gradient_penalty_coef_schedule[3], 1)
+                gradient_penalty_coef = gradient_stage * (self.gradient_penalty_coef_schedule[1] - self.gradient_penalty_coef_schedule[0]) + self.gradient_penalty_coef_schedule[0]
 
                 # KL
                 if self.desired_kl != None and self.schedule == 'adaptive':
@@ -156,7 +174,8 @@ class PPOEXPLICIT():
                 loss = (surrogate_loss +
                         self.value_loss_coef * value_loss -
                         self.entropy_coef * entropy_batch.mean() +
-                        torch.nn.MSELoss()(est_lin_vel, ref_lin_vel))
+                        torch.nn.MSELoss()(est_lin_vel, ref_lin_vel) +
+                        gradient_penalty_coef * gradient_penalty_loss )
                 # print("self.value_loss_coef", self.value_loss_coef)
                 # print("self.entropy_coef",self.entropy_coef)
                 # print("est_lin_vel", est_lin_vel[0])
@@ -172,11 +191,17 @@ class PPOEXPLICIT():
                 mean_value_loss += value_loss.item()
                 mean_surrogate_loss += surrogate_loss.item()
                 mean_state_estimator_loss += state_estimator_loss.item()
+                mean_grad_penalty_loss += gradient_penalty_loss.item()
 
         num_updates = self.num_learning_epochs * self.num_mini_batches
         mean_value_loss /= num_updates
         mean_surrogate_loss /= num_updates
         mean_state_estimator_loss /= num_updates
+        mean_grad_penalty_loss /= num_updates
         self.storage.clear()
+        self.update_counter()
 
-        return mean_value_loss, mean_surrogate_loss, mean_state_estimator_loss
+        return mean_value_loss, mean_surrogate_loss, mean_state_estimator_loss, mean_grad_penalty_loss, gradient_penalty_coef
+
+    def update_counter(self):
+        self.counter += 1
