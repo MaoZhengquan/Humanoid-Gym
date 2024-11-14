@@ -99,7 +99,7 @@ python train_x1.py --task=gr1_explicit --run_name=explicit --proj_name=gr1_expli
 play
 python play_x1.py --task=gr1_explicit --load_run=xxx-xx-xx_explicit
 export jit
-python export_policy.py --task=r1_explicit --load_run
+python export_policy.py --task=gr1_explicit --load_run
 export onnx
-python export_onnx.py --task=r1_explicit --load_run
+python export_onnx.py --task=gr1_explicit --load_run
 ```
