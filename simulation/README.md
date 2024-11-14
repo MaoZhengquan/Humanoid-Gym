@@ -91,3 +91,15 @@ The number of training iterations is also important. For Berkeley Humanoid and H
 
 ### Sim-to-Sim Performance of Fourier GR1
 For successful real-world deployment, system identification is performed and a fitted motor model is used in the training. However, we do not include this in Mujoco for simplicity. Therefore, a slight decrease in performance of sim-to-sim is expected for GR1.
+
+### How to Use
+```bash
+train
+python train_x1.py --task=gr1_explicit --run_name=explicit --proj_name=gr1_explicit --exptid=pretrained_explicit_4090
+play
+python play_x1.py --task=gr1_explicit --load_run=xxx-xx-xx_explicit
+export jit
+python export_policy.py --task=r1_explicit --load_run
+export onnx
+python export_onnx.py --task=r1_explicit --load_run
+```

@@ -47,7 +47,7 @@ from datetime import datetime
 
 from threading import Thread
 
-x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 0.5, 0.0, 0.0
+x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 0.0, 0.0, 0.0
 
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
