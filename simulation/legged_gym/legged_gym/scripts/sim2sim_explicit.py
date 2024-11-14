@@ -45,7 +45,7 @@ import torch
 
 
 class cmd:
-    vx = 0.
+    vx = 0.0
     vy = 0.0
     dyaw = 0.0
 
@@ -72,6 +72,7 @@ def quaternion_to_euler_array(quat):
     # Returns roll, pitch, yaw in a NumPy array in radians
     return np.array([roll_x, pitch_y, yaw_z])
 
+
 def get_obs(data):
     '''Extracts an observation from the mujoco data structure
     '''
@@ -84,22 +85,26 @@ def get_obs(data):
     gvec = r.apply(np.array([0., 0., -1.]), inverse=True).astype(np.double)
     return (q, dq, quat, v, omega, gvec)
 
+
 def pd_control(target_q, q, kp, target_dq, dq, kd):
     '''Calculates torques from position commands
     '''
     return (target_q - q) * kp + (target_dq - dq) * kd
+
 
 def init_csv(file_path):
     if os.path.exists(file_path):
         os.remove(file_path)
         print(f"{file_path}文件已删除")
 
-def record_obs_to_csv(obs,path):
-    with open(path,mode='a',newline='')as file:
+
+def record_obs_to_csv(obs, path):
+    with open(path, mode='a', newline='') as file:
         writer = csv.writer(file)
         for row in obs:
             formatted_row = [f"{x:.3f}" for x in row]
             writer.writerow(formatted_row)
+
 
 def run_mujoco(policy, cfg):
     """
@@ -123,17 +128,17 @@ def run_mujoco(policy, cfg):
     action_startup = np.zeros(cfg.env.num_dofs, dtype=np.float32)
     default_joint_pos = np.zeros(cfg.env.num_dofs, dtype=np.float32)
     for index, value in enumerate(cfg.init_state.default_joint_angles.values()):
-        action_startup[index] = value * (1 // cfg.control.action_scale)
-        default_joint_pos[index] = value
-    print(data.qpos)
+        if index < 12:
+            action_startup[index] = value * (1 // cfg.control.action_scale)
+            default_joint_pos[index] = value
     data.qpos[7:] = default_joint_pos[:]
 
-    target_q = np.zeros((cfg.env.num_actions))
+    target_q = np.zeros((cfg.env.num_dofs))
     action = np.zeros((cfg.env.num_dofs))
     action[:] = action_startup[:]
     hist_obs = deque()
     for _ in range(cfg.env.frame_stack):
-        hist_obs.append(np.zeros(cfg.env.n_proprio))
+        hist_obs.append(np.zeros(cfg.env.num_single_obs))
 
     count_lowlevel = 0
     count_max_merge = 50
@@ -144,7 +149,7 @@ def run_mujoco(policy, cfg):
     init_csv('../utils/tau.csv')
 
     for _ in tqdm(range(int(cfg.sim_config.sim_duration / cfg.sim_config.dt)), desc="Simulating..."):
-        phase = count_lowlevel * 0.002 / cfg.rewards.cycle_time
+        phase = count_lowlevel * 0.001 / cfg.rewards.cycle_time
         # phase = (_ // 10 ) * 0.02 / 0.8
 
         mask_right = (math.floor(phase) + 1) % 2
@@ -152,8 +157,8 @@ def run_mujoco(policy, cfg):
 
         cos_pos = (1 - math.cos(2 * math.pi * phase)) / 2  # 得到一条从0开始增加，频率为step_freq，振幅0～1的曲线，接地比较平滑
         # print("cfg.sim_config.dt",cfg.sim_config.dt)
-        right_leg_phase = math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt / 0.64)
-        left_leg_phase =  math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt / 0.64)
+        right_leg_phase = math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt / 0.7)
+        left_leg_phase = math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt / 0.7)
 
         # Obtain an observation
         q, dq, quat, v, omega, gvec = get_obs(data)
@@ -163,11 +168,19 @@ def run_mujoco(policy, cfg):
         # 1000hz -> 100hz
         if count_lowlevel % cfg.sim_config.decimation == 0:
 
-            obs = np.zeros(cfg.env.n_proprio, dtype=np.float32)
+            if hasattr(cfg.commands, "sw_switch"):
+                vel_norm = np.sqrt(cmd.vx ** 2 + cmd.vy ** 2 + cmd.dyaw ** 2)
+                if cfg.commands.sw_switch and vel_norm <= cfg.commands.stand_com_threshold:
+                    count_lowlevel = 0
+            print("count_lowlevel: ", count_lowlevel)
+            obs = np.zeros(cfg.env.num_single_obs, dtype=np.float32)
             eu_ang = quaternion_to_euler_array(quat)
             eu_ang[eu_ang > math.pi] -= 2 * math.pi
-            obs[0] = right_leg_phase
-            obs[1] = left_leg_phase
+            obs[0] = math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time)
+            print("obs[0]", math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time))
+            obs[1] = math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time)
+            print("obs[1]", math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time))
+
             obs[2] = cmd.vx * cfg.normalization.obs_scales.lin_vel
             obs[3] = cmd.vy * cfg.normalization.obs_scales.lin_vel
             obs[4] = cmd.dyaw * cfg.normalization.obs_scales.ang_vel
@@ -175,18 +188,20 @@ def run_mujoco(policy, cfg):
             obs[17:29] = dq * cfg.normalization.obs_scales.dof_vel
             obs[29:39] = last_action
             obs[39:42] = omega * cfg.normalization.obs_scales.ang_vel
-            obs[42:44] = eu_ang[:2]
-            print(last_action.shape)
-            record_obs_to_csv(obs.reshape(1,44),'../utils/obs.csv')
+            print("omega", obs[39:42])
+            obs[42:44] = eu_ang[:2] * cfg.normalization.obs_scales.imu
+            print("euler", obs[42:44])
+
+            record_obs_to_csv(obs.reshape(1, 44), '../utils/obs.csv')
             obs = np.clip(obs, -cfg.normalization.clip_observations, cfg.normalization.clip_observations)
 
             hist_obs.append(obs)
             hist_obs.popleft()
             obs_hist = np.array(hist_obs).flatten()
 
-            obs_buf = obs_hist.reshape(1,516).astype(np.float32)
+            obs_buf = obs_hist.reshape(1, 2904).astype(np.float32)
             input_name = sess.get_inputs()[0].name
-            raw_action = sess.run(None,{input_name: obs_buf})
+            raw_action = sess.run(None, {input_name: obs_buf})
             # obs_tensor = torch.from_numpy(obs_buf).float().unsqueeze(0)
             # with torch.no_grad():
             #     raw_action = policy(obs_tensor).cpu().numpy().squeeze()
@@ -194,14 +209,13 @@ def run_mujoco(policy, cfg):
             scaled_actions = np.array(raw_action) * 0.5
             step_actions = np.zeros(12)
             step_actions[cfg.env.control_indices] = scaled_actions
-            if count_lowlevel < count_max_merge:
-                step_actions[:] = (action_startup[:] / count_max_merge * (count_max_merge - count_lowlevel)
-                             + action[:] / count_max_merge * count_lowlevel) * 0.5
+            # if count_lowlevel < count_max_merge:
+            #     step_actions[:] = (action_startup[:] / count_max_merge * (count_max_merge - count_lowlevel)
+            #                  + action[:] / count_max_merge * count_lowlevel) * 0.5
             # action_scaled = action*cfg.control.action_scale
             # action = np.clip(action ,cfg.normalization.clip_actions_min,cfg.normalization.clip_actions_max)
             action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)
             target_q = step_actions + default_joint_pos
-
 
             # print("action_scaled",action * cfg.control.action_scale)
         target_dq = np.zeros((cfg.env.num_dofs), dtype=np.double)
@@ -213,23 +227,23 @@ def run_mujoco(policy, cfg):
         # print("target_dq - q",- dq)
 
         tau = pd_control(target_q, q, cfg.robot_config.kps,
-                        target_dq, dq, cfg.robot_config.kds)  # Calc torques
+                         target_dq, dq, cfg.robot_config.kds)  # Calc torques
 
         # print("target_q",target_q /3.14 *180.0)
-            # tau = np.round(tau,4)
-            # print("right_leg_phase",right_leg_phase)
-            # print("left_leg_phase", left_leg_phase)
-            # print("joint_offset",obs[0,5:17])
-            # print("joint_vel",obs[0, 17:29])
-            # print("omega",obs[0, 29:32])
-            # print('quat', quat)
-            # print("eu_ang", obs[0, 32:35])
-            # print("action", obs[0, 35:47])
+        # tau = np.round(tau,4)
+        # print("right_leg_phase",right_leg_phase)
+        # print("left_leg_phase", left_leg_phase)
+        # print("joint_offset",obs[0,5:17])
+        # print("joint_vel",obs[0, 17:29])
+        # print("omega",obs[0, 29:32])
+        # print('quat', quat)
+        # print("eu_ang", obs[0, 32:35])
+        # print("action", obs[0, 35:47])
         tau = np.clip(tau, -cfg.robot_config.tau_limit, cfg.robot_config.tau_limit)  # Clamp torques
         record_obs_to_csv(tau.reshape(1, 12), '../utils/tau.csv')
 
-            # print("action_clip",action)
-            # print("tau",tau)
+        # print("action_clip",action)
+        # print("tau",tau)
         data.ctrl = tau
         # if count_lowlevel > 200:
         #     print('tau', tau)
@@ -258,7 +272,8 @@ if __name__ == '__main__':
     parser.add_argument('--terrain', action='store_true', help='terrain or plane')
     args = parser.parse_args()
 
-    class Sim2simCfg(GRCfg):
+
+    class Sim2simCfg(GR1_explicitCfg):
 
         class sim_config:
             if args.terrain:
@@ -266,19 +281,21 @@ if __name__ == '__main__':
             else:
                 # mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/XBot/mjcf/XBot-L.xml'
                 mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/gr1t1/mjcf/GR1T1_6DoF.xml'
-                print("mujoco_model_path",mujoco_model_path)
+                print("mujoco_model_path", mujoco_model_path)
             sim_duration = 60.0
             dt = 0.001
             decimation = 10
 
         class robot_config:
-            kps = np.array([200, 200, 350, 350, 10.98,0, 200, 200, 350, 350, 10.98,0], dtype=np.double)
-            kds = np.array([20, 20, 20, 20, 0.6,0.1,20, 20, 20, 20, 0.6,0.1], dtype=np.double)
-            tau_limit = np.array([48,60,160,160,16,8,48,60,160,160,16,8], dtype=np.double)
+            kps = np.array([251.625, 362.52, 300, 300, 10.98, 0, 251.625, 362.52, 300, 300, 10.98, 0], dtype=np.double)
+            kds = np.array([14.72, 10.08, 11, 11, 0.6, 0.1, 14.72, 10.08, 11, 11, 0.6, 0.1], dtype=np.double)
+            tau_limit = np.array([48, 60, 160, 160, 16, 8, 48, 60, 160, 160, 16, 8], dtype=np.double)
+
 
     policy = torch.jit.load(args.load_model)
     session_options = ort.SessionOptions()
     session_options.intra_op_num_threads = 20
-    sess = ort.InferenceSession('/home/mao/Github_Project/rl_series/simulation/legged_gym/logs/GR1_x1_stand/exported_onnx/2024-11-14_10-40-59/gr1_policy.onnx',
-                                session_options)
+    sess = ort.InferenceSession(
+        '/home/mao/Github_Project/rl_series/simulation/legged_gym/logs/GR1_x1_stand/exported_onnx/2024-11-14_10-53-09/gr1_policy.onnx',
+        session_options)
     run_mujoco(policy, Sim2simCfg())
