@@ -98,8 +98,8 @@ train
 python train_x1.py --task=gr1_explicit --run_name=explicit --proj_name=gr1_explicit --exptid=pretrained_explicit_4090
 play
 python play_x1.py --task=gr1_explicit --load_run=xxx-xx-xx_explicit
-export jit
+export jit.pt
 python export_policy.py --task=gr1_explicit --load_run
-export onnx
+export onnx 
 python export_onnx.py --task=gr1_explicit --load_run
 ```
