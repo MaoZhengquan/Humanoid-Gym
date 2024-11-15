@@ -3,7 +3,7 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg
 
 class GR1_explicitCfg(HumanoidCfg):
     class env(HumanoidCfg.env):
-        frame_stack = 66 # all history obs num
+        frame_stack = 10 # all history obs num
         short_frame_stack = 5 # short history step
         c_frame_stack = 3 # all history privileged obs num
         num_actions = 10
@@ -20,6 +20,7 @@ class GR1_explicitCfg(HumanoidCfg):
         normalize_obs = True
         history_encoding = False
         contact_buf_len = 10
+        control_indices = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10]
 
 
 
@@ -243,19 +244,19 @@ class GR1_explicitCfg(HumanoidCfg):
             base_height = 0.2
 
             # energy
-            action_smoothness = -0.001
+            # action_smoothness = -0.001
             torques = -8e-9
             dof_vel = -2e-8
             dof_acc = -1e-7
             collision = -1.0
-            stand_still = 2.0
+            stand_still = 2.5
 
             # alive = 2.0
-            # feet_stumble = -1.25
+            feet_stumble = -1.25
 
             # limits
-            # dof_vel_limits = -1.
-            # dof_pos_limits = -5.0
+            dof_vel_limits = -1.
+            dof_pos_limits = -10.0
             dof_torque_limits = -0.1
 
         min_dist = 0.2
@@ -263,14 +264,14 @@ class GR1_explicitCfg(HumanoidCfg):
         max_knee_dist = 0.25
         target_joint_pos_scale = 0.17
         feet_to_ankle_distance = 0.045
-        target_feet_height = 0.1
-        cycle_time = 0.7
-        double_support_threshold = 0.5
+        target_feet_height = 0.03
+        cycle_time = 0.8
+        double_support_threshold = 0.1
         only_positive_rewards = True
         tracking_sigma = 5
         tracking_sigma_ang = 0.125
         base_height_target = 0.886
-        max_contact_force = 500  # Forces above this value are penalized
+        max_contact_force = 700  # Forces above this value are penalized
         soft_torque_limit = 0.9
 
     class domain_rand(LeggedRobotCfg.domain_rand):
@@ -391,12 +392,12 @@ class GR1_explicitCfgPPO(HumanoidCfgPPO):
         use_clipped_value_loss = True
         clip_param = 0.2
         entropy_coef = 0.01
-        learning_rate = 2e-4
+        learning_rate = 1e-5
         num_learning_epochs = 5
         num_mini_batches = 4
         gamma = 0.994
         lam = 0.9
-        desired_kl = 0.01
+        desired_kl = 0.008
         num_mini_batches = 4
         max_grad_norm = 1.
         schedule = 'adaptive'  # could be adaptive, fixed
@@ -412,8 +413,8 @@ class GR1_explicitCfgPPO(HumanoidCfgPPO):
 
     class policy(HumanoidCfgPPO.policy):
         init_noise_std = 1.0
-        action_std = [0.3, 0.3, 0.5, 0.4, 0.2] * 2
-        fix_action_std = False
+        action_std = [0.3, 0.3, 0.4, 0.4, 0.2] * 2
+        fix_action_std = True
         actor_hidden_dims = [512, 256, 128]
         critic_hidden_dims = [768, 256, 128]
         state_estimator_hidden_dims = [256, 128, 64]

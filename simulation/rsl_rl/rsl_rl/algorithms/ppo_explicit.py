@@ -110,9 +110,13 @@ class PPOEXPLICIT():
         for obs_batch, critic_obs_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, \
                 old_mu_batch, old_sigma_batch, hid_states_batch, masks_batch in generator:
 
-                self.actor_critic.act(obs_batch, masks=masks_batch, hid_states_batch=hid_states_batch[0])
+                obs_est_batch = obs_batch.clone()
+                obs_est_batch.requires_grad_()
+
+                self.actor_critic.act(obs_est_batch, masks=masks_batch, hid_states_batch=hid_states_batch[0])
                 state_estimator_input = obs_batch[:,-self.num_short_obs:]
                 est_lin_vel = self.actor_critic.state_estimator(state_estimator_input)
+
                 # print("lin_vel_idx", self.lin_vel_idx)
                 # print("critic_obs_batch", critic_obs_batch.size())
                 ref_lin_vel = critic_obs_batch[:,self.lin_vel_idx:self.lin_vel_idx+3].clone()
@@ -123,7 +127,7 @@ class PPOEXPLICIT():
                 entropy_batch = self.actor_critic.entropy
 
                 # Calculate the gradient penalty loss
-                gradient_penalty_loss = self._calc_grad_penalty(obs_batch, actions_log_prob_batch)
+                gradient_penalty_loss = self._calc_grad_penalty(obs_est_batch, actions_log_prob_batch)
 
                 gradient_stage = min(max(self.counter - self.gradient_penalty_coef_schedule[2], 0) / self.gradient_penalty_coef_schedule[3], 1)
                 gradient_penalty_coef = gradient_stage * (self.gradient_penalty_coef_schedule[1] - self.gradient_penalty_coef_schedule[0]) + self.gradient_penalty_coef_schedule[0]

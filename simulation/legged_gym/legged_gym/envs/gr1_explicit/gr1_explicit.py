@@ -86,7 +86,7 @@ class GR1_explicit(Humanoid):
         cycle_time = self.cfg.rewards.cycle_time
         if self.cfg.commands.sw_switch:
             stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
-            print("stand_command", stand_command)
+            # print("stand_command", stand_command)
             self.phase_length_buf[stand_command] = 0 # set this as 0 for which env is standing
             phase = (self.phase_length_buf * self.dt / cycle_time + self.gait_start) * (~stand_command)
         else:
@@ -490,17 +490,17 @@ class GR1_explicit(Humanoid):
                 self.lagged_base_euler_xyz = self.base_euler_xyz[:, -3:]
 
         # obs q and dq
-        q = (self.lagged_dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos
-        dq = self.lagged_dof_vel - self.obs_scales.dof_vel
 
+        q = (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos
+        dq = self.dof_vel * self.obs_scales.dof_vel
         # 44
         obs_buf = torch.cat((
             self.command_input, # 5 = 2D(sin cos) + 3D(vel_x, vel_y, ang_vel_yaw)
             q, # 12
             dq, # 12
             self.actions, # 10
-            self.lagged_base_ang_vel * self.obs_scales.ang_vel, # 3
-            self.lagged_base_euler_xyz[:,:2] * self.obs_scales.imu, # 2
+            self.base_ang_vel * self.obs_scales.ang_vel, # 3
+            self.base_euler_xyz[:,:2] * self.obs_scales.imu, # 2
         ), dim=-1)
 
         if self.cfg.env.num_single_obs == 45:
@@ -939,6 +939,13 @@ class GR1_explicit(Humanoid):
         term_3 = 0.05 * torch.sum(torch.abs(self.actions), dim=1)
         return term_1 + term_2 + term_3
 
+    def _reward_foot_slip(self):
+        contact = self.contact_forces[:, self.feet_indices, 2] > 5.
+        foot_speed_norm = torch.norm(self.rigid_body_states[:, self.feet_indices, 10:12], dim=2)
+        rew = torch.sqrt(foot_speed_norm)
+        rew *= contact
+        return torch.sum(rew, dim=1)
+
     def _reward_torques(self):
         """
         Penalizes the use of high torques in the robot's joints. Encourages efficient movement by minimizing
@@ -949,15 +956,23 @@ class GR1_explicit(Humanoid):
     def _reward_stand_still(self):
         # penalize motion at zero commands
         stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
-        stand_pos = self.default_dof_pos.clone()
-        stand_pos[:,[2,8]] = 0.25
-        stand_pos[:,[3,9]] = -0.5
-        stand_pos[:,[4,10]] = 0.25
-        r = torch.exp(-torch.sum(torch.square(self.dof_pos - stand_pos), dim=1))
+        r = torch.exp(-torch.sum(torch.square(self.dof_pos - self.default_dof_pos), dim=1))
         # r = torch.exp(-torch.sum(torch.square(self.dof_pos - self.default_dof_pos), dim=1))
         r = torch.where(stand_command, r.clone(),
                         torch.zeros_like(r))
         return r
+
+    def _reward_feet_air_time(self):
+        contact = self.contact_forces[:, self.feet_indices, 2] > 5.
+        stance_mask = self._get_stance_mask()
+        stance_mask[torch.norm(self.commands[:, :3], dim=1) < 0.05] = 1
+        self.contact_filt = torch.logical_or(torch.logical_or(contact, stance_mask), self.last_contacts)
+        self.last_contacts = contact
+        first_contact = (self.feet_air_time > 0.) * self.contact_filt
+        self.feet_air_time += self.dt
+        air_time = self.feet_air_time.clamp(0, 0.5) * first_contact
+        self.feet_air_time *= ~self.contact_filt
+        return air_time.sum(dim=1)
 
     def _reward_feet_stumble(self):
         # Penalize feet hitting vertical surfaces
@@ -1034,6 +1049,19 @@ class GR1_explicit(Humanoid):
         # ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
         return r
 
+    def _reward_feet_clearance(self):
+        contact = self.contact_forces[:, self.feet_indices, 2] > 5.
+        feet_z = self.rigid_body_states[:, self.feet_indices, 2] - 0.05
+
+        delta_z = feet_z - self.last_feet_z
+        self.feet_height += delta_z
+        self.last_feet_z = feet_z
+        swing_mask = 1 - self._get_stance_mask()
+        rew_pos = torch.abs(self.feet_height - self.cfg.rewards.target_feet_height) < 0.01
+        rew_pos = torch.sum(rew_pos * swing_mask, dim=1)
+        self.feet_height *= ~contact
+        return rew_pos
+
     def _reward_feet_contact_number(self):
         contact = self.contact_forces[:, self.feet_indices, 2] > 5.
         stance_mask = self._get_stance_mask().clone()
@@ -1042,11 +1070,7 @@ class GR1_explicit(Humanoid):
         return torch.mean(reward, dim=1)
 
     def _reward_feet_contact_forces(self):
-        # rew = torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :],dim=-1)-self.cfg.rewards.max_contact_force).clip(0,400), dim=-1)
-        rew = torch.norm(self.contact_forces[:, self.feet_indices, 2], dim=-1)
-        rew[rew < self.cfg.rewards.max_contact_force] = 0
-        rew[rew > self.cfg.rewards.max_contact_force] -= self.cfg.rewards.max_contact_force
-        rew[~self.get_walking_cmd_mask()] = 0
+        rew = torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :], dim=-1) - self.cfg.rewards.max_contact_force).clip(0,400), dim=-1)
         return rew
 
     def _reward_dof_vel(self):
@@ -1070,14 +1094,11 @@ class GR1_explicit(Humanoid):
         of its feet when they are in contact with the ground.
         """
         stance_mask = self._get_stance_mask()
-        stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
 
         measured_heights = torch.sum(
             self.rigid_body_states[:, self.feet_indices, 2] * stance_mask, dim=1) / torch.sum(stance_mask, dim=1)
         base_height = self.root_states[:, 2] - (measured_heights - self.cfg.rewards.feet_to_ankle_distance)
-        target_height = torch.ones_like(base_height) * self.cfg.rewards.base_height_target
-        target_height[stand_command] = 0.895
-        return torch.exp(-torch.abs(base_height - target_height) * 100)
+        return torch.exp(-torch.abs(base_height - self.cfg.rewards.base_height_target) * 100)
 
     # def _reward_feet_rotation(self):
     #     feet_euler_xyz = self.feet_euler_xyz
