@@ -46,7 +46,7 @@ import torch
 
 class cmd:
     vx = 0.0
-    vy = 0.0
+    vy = 0.2
     dyaw = 0.0
 
 
@@ -106,7 +106,7 @@ def record_obs_to_csv(obs, path):
             writer.writerow(formatted_row)
 
 
-def run_mujoco(policy, cfg):
+def run_mujoco(cfg):
     """
     Run the Mujoco simulation using the provided policy and configuration.
 
@@ -167,30 +167,29 @@ def run_mujoco(policy, cfg):
 
         # 1000hz -> 100hz
         if count_lowlevel % cfg.sim_config.decimation == 0:
+            stand_flag = 1
 
             if hasattr(cfg.commands, "sw_switch"):
                 vel_norm = np.sqrt(cmd.vx ** 2 + cmd.vy ** 2 + cmd.dyaw ** 2)
                 if cfg.commands.sw_switch and vel_norm <= cfg.commands.stand_com_threshold:
-                    count_lowlevel = 0
+                    stand_flag = 0
             print("count_lowlevel: ", count_lowlevel)
             obs = np.zeros(cfg.env.num_single_obs, dtype=np.float32)
             eu_ang = quaternion_to_euler_array(quat)
             eu_ang[eu_ang > math.pi] -= 2 * math.pi
-            obs[0] = math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time)
-            print("obs[0]", math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time))
-            obs[1] = math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time)
-            print("obs[1]", math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time))
+            obs[0] = math.sin(2 * math.pi * count_lowlevel * stand_flag * cfg.sim_config.dt / cfg.rewards.cycle_time)
+            # print("obs[0]", math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time))
+            obs[1] = math.cos(2 * math.pi * count_lowlevel * stand_flag * cfg.sim_config.dt / cfg.rewards.cycle_time)
+            # print("obs[1]", math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time))
 
             obs[2] = cmd.vx * cfg.normalization.obs_scales.lin_vel
             obs[3] = cmd.vy * cfg.normalization.obs_scales.lin_vel
             obs[4] = cmd.dyaw * cfg.normalization.obs_scales.ang_vel
             obs[5:17] = (q - default_joint_pos) * cfg.normalization.obs_scales.dof_pos
-            obs[17:29] = dq * cfg.normalization.obs_scales.dof_vel
+            obs[17:29] = dq - cfg.normalization.obs_scales.dof_vel
             obs[29:39] = last_action
             obs[39:42] = omega * cfg.normalization.obs_scales.ang_vel
-            print("omega", obs[39:42])
             obs[42:44] = eu_ang[:2] * cfg.normalization.obs_scales.imu
-            print("euler", obs[42:44])
 
             record_obs_to_csv(obs.reshape(1, 44), '../utils/obs.csv')
             obs = np.clip(obs, -cfg.normalization.clip_observations, cfg.normalization.clip_observations)
@@ -199,7 +198,7 @@ def run_mujoco(policy, cfg):
             hist_obs.popleft()
             obs_hist = np.array(hist_obs).flatten()
 
-            obs_buf = obs_hist.reshape(1, 2904).astype(np.float32)
+            obs_buf = obs_hist.reshape(1, 440).astype(np.float32)
             input_name = sess.get_inputs()[0].name
             raw_action = sess.run(None, {input_name: obs_buf})
             # obs_tensor = torch.from_numpy(obs_buf).float().unsqueeze(0)
@@ -216,7 +215,7 @@ def run_mujoco(policy, cfg):
             # action = np.clip(action ,cfg.normalization.clip_actions_min,cfg.normalization.clip_actions_max)
             action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)
             target_q = step_actions + default_joint_pos
-
+            # print("target_q", target_q * 180.0 / math.pi)
             # print("action_scaled",action * cfg.control.action_scale)
         target_dq = np.zeros((cfg.env.num_dofs), dtype=np.double)
         # Generate PD control
@@ -240,6 +239,7 @@ def run_mujoco(policy, cfg):
         # print("eu_ang", obs[0, 32:35])
         # print("action", obs[0, 35:47])
         tau = np.clip(tau, -cfg.robot_config.tau_limit, cfg.robot_config.tau_limit)  # Clamp torques
+        # print("tau", tau)
         record_obs_to_csv(tau.reshape(1, 12), '../utils/tau.csv')
 
         # print("action_clip",action)
@@ -292,10 +292,10 @@ if __name__ == '__main__':
             tau_limit = np.array([48, 60, 160, 160, 16, 8, 48, 60, 160, 160, 16, 8], dtype=np.double)
 
 
-    policy = torch.jit.load(args.load_model)
+    # policy = torch.jit.load(args.load_model)
     session_options = ort.SessionOptions()
     session_options.intra_op_num_threads = 20
     sess = ort.InferenceSession(
-        '/home/mao/Github_Project/rl_series/simulation/legged_gym/logs/GR1_x1_stand/exported_onnx/2024-11-14_10-53-09/gr1_policy.onnx',
+        '/home/mao/Github_Project/rl_series/simulation/legged_gym/logs/GR1_x1_stand/exported_onnx/2024-11-15_09-27-59/gr1_policy.onnx',
         session_options)
-    run_mujoco(policy, Sim2simCfg())
+    run_mujoco(Sim2simCfg())
