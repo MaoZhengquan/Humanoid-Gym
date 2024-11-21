@@ -17,7 +17,7 @@ class GR1_5dofCfg(HumanoidCfg):
 
         env_spacing = 3.  # not used with heightfields/trimeshes
         send_timeouts = True  # send time out information to the algorithm
-        episode_length_s = 10
+        episode_length_s = 24
 
         randomize_start_pos = True
         randomize_start_yaw = True
@@ -93,7 +93,7 @@ class GR1_5dofCfg(HumanoidCfg):
         }
 
         action_scale = 0.5
-        decimation = 20
+        decimation = 10
 
     class sim(HumanoidCfg.sim):
         dt = 0.001
@@ -173,7 +173,7 @@ class GR1_5dofCfg(HumanoidCfg):
         regularization_scale_gamma = 0.0001
 
         class scales:
-            joint_pos = 2.2 # 1.6
+            joint_pos = 1.6
             feet_clearance = 1.
             feet_contact_number = 2.0
 
@@ -200,7 +200,6 @@ class GR1_5dofCfg(HumanoidCfg):
             orientation = -1.0
 
             collision = -10.0
-            stand_still = 2.5
 
             dof_pos_limits = -5.0
             dof_torque_limits = -0.8
@@ -209,7 +208,7 @@ class GR1_5dofCfg(HumanoidCfg):
         min_dist = 0.2
         max_dist = 0.5
         max_knee_dist = 0.25
-        target_joint_pos_scale = 0.17
+        target_joint_pos_scale = 0.20
         target_feet_height = 0.1
         cycle_time = 0.8
         double_support_threshold = 0.5
@@ -251,10 +250,10 @@ class GR1_5dofCfg(HumanoidCfg):
         noise_increasing_steps = 5000
 
         class noise_scales:
-            dof_pos = 0.2
-            dof_vel = 1.5
+            dof_pos = 0.02
+            dof_vel = 1.0
             lin_vel = 0.1
-            ang_vel = 0.05
+            ang_vel = 0.2
             gravity = 0.05
             imu = 0.1
 
