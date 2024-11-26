@@ -13,7 +13,7 @@ exptid=${2}
 python play.py --task "${task_name}" \
                 --proj_name "${proj_name}" \
                 --exptid "${exptid}" \
-                --num_envs 64 \
+                --num_envs 1 \
                 # --record_video \
                 # --checkpoint 4900 \
                 # --use_jit \

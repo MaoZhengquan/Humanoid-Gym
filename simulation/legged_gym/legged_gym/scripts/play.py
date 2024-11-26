@@ -63,7 +63,7 @@ def get_load_path(root, load_run=-1, checkpoint=-1, model_name_include="jit"):
     return model, checkpoint
 
 def set_play_cfg(env_cfg):
-    env_cfg.env.num_envs = 2#2 if not args.num_envs else args.num_envs
+    env_cfg.env.num_envs = 1#2 if not args.num_envs else args.num_envs
     # env_cfg.env.episode_length_s = 60
     # env_cfg.commands.resampling_time = 60
     env_cfg.terrain.num_rows = 5
@@ -94,6 +94,10 @@ def play(args):
     if_normalize = env_cfg.env.normalize_obs
 
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
+
+    env.commands[:, 0] = 0
+    env.commands[:, 1] = 0
+    env.commands[:, 2] = 0
     obs = env.get_observations()
 
     # load policy

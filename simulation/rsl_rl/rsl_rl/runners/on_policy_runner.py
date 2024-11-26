@@ -275,6 +275,8 @@ class OnPolicyRunner:
                         wandb_dict['Episode_rew_tracking/' + key] = value
                     elif "curriculum" in key:
                         wandb_dict['Episode_curriculum/' + key] = value
+                    elif "count_stand" in key:
+                        wandb_dict['Stand_still/' + key] = ep_info["count_stand"]
                     else:
                         wandb_dict['Episode_rew_regularization/' + key] = value
                     # 格式化并将平均值以字符串形式追加到ep_string中

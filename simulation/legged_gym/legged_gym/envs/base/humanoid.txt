@@ -96,7 +96,8 @@ class Humanoid(LeggedRobot):
 
     def _init_buffers(self):
         super()._init_buffers()
-
+        self.phase_length_buf = torch.zeros(
+            self.num_envs, device=self.device, dtype=torch.long)
         self.gait_start = torch.randint(0, 2, (self.num_envs,)).to(self.device)*0.5
         self.feet_force_sum = torch.ones(self.num_envs, 2, device=self.device)
 
@@ -177,7 +178,7 @@ class Humanoid(LeggedRobot):
         self.action_history_buf = torch.cat([self.action_history_buf[:, 1:].clone(), action_tensor[:, None, :].clone()], dim=1)
 
         if self.cfg.domain_rand.action_delay:
-            if self.total_env_steps_counter <= 3000 * 24:
+            if self.total_env_steps_counter <= 5000 * 24:
                 self.delay = torch.tensor(0, device=self.device, dtype=torch.float)
             else:
                 # self.delay = torch.tensor(np.random.randint(2), device=self.device, dtype=torch.float)
@@ -237,6 +238,7 @@ class Humanoid(LeggedRobot):
         self.obs_history_buf[env_ids, :, :] = 0.
         self.contact_buf[env_ids, :, :] = 0.
         self.action_history_buf[env_ids, :, :] = 0.
+        self.phase_length_buf[env_ids] = 0
         self.feet_land_time[env_ids] = 0.
         self._reset_buffers_extra(env_ids)
         self.feet_quat = self.rigid_body_states[:, self.feet_indices, 3:7]
@@ -335,6 +337,7 @@ class Humanoid(LeggedRobot):
             Default behaviour: Compute ang vel command based on target and heading, compute measured terrain heights and randomly push robots
         """
         #
+        self.phase_length_buf += 1
         env_ids = (self.episode_length_buf % int(self.cfg.commands.resampling_time / self.dt)==0)
         self._resample_commands(env_ids.nonzero(as_tuple=False).flatten())
 
