@@ -33,17 +33,18 @@ class Sim2realCfg:
     n_proprio = 2 + 3 + 3 + 2 + 2 * (num_dofs) + num_actions
     n_priv_latent = 4 + 1 + 2 * (num_dofs) + 3
     history_len = 10
+    frame_stack=66
     control_indices = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10]
 
     sim_duration = 60
-    dt = 0.01
+    dt = 0.001
     step_freq = 2
-    cycle_time = 0.8
+    cycle_time = 0.7
     decimation = 10
     action_scale = 0.5
 
     class obs_scale:
-        lin_vel = 1.
+        lin_vel = 2.0
         ang_vel = 0.25
         dof_pos = 1.
         dof_vel = 0.05
@@ -86,22 +87,22 @@ class DemoNohlaRLWalk:
         self.joint_default_position = np.array([
             0.0, 0.0, -0.4, 0.8, -0.4, -0.0,  # left leg (6)
             -0.0, 0.0, -0.4, 0.8, -0.4, 0.0,  # right leg (6)
-            0.0, -0.4, 0.0,  # waist (3)
+            0.0, 0.0, 0.0,  # waist (3)
             0.0, 0.0, 0.0,  # waist (3)
             0.0, 0.2, 0.0, -0.3, 0.0, 0.0, 0.0,  # left arm (4)
             0.0, -0.2, 0.0, -0.3, 0.0, 0.0, 0.0, # right arm (4)
         ])
 
-        self.proprio_history_buf = deque(maxlen=cfg.history_len)
-        for _ in range(self.cfg.history_len):
-            self.proprio_history_buf.append(np.zeros(self.cfg.n_proprio))
-        self.priv_latent = np.zeros(self.cfg.n_priv_latent, dtype=np.float32)
+        self.hist_obs = deque()
+
+        for _ in range(self.cfg.frame_stack):
+            self.hist_obs.append(np.zeros(self.cfg.n_proprio))
 
         self.last_action = np.zeros(self.cfg.num_actions)
         self.action = np.zeros(self.cfg.num_actions)
         session_options = ort.SessionOptions()
         session_options.intra_op_num_threads = 20
-        self.sess = ort.InferenceSession('/home/gr124ja0052/Fourier/fourier-grx-client/examples/data/1122/gr1_policy.onnx',
+        self.sess = ort.InferenceSession('/home/gr124ja0052/Fourier/fourier-grx-client/examples/data/1114/gr1_policy.onnx',
                                          session_options)
         # warm up
         time.sleep(5)
@@ -195,21 +196,21 @@ class DemoNohlaRLWalk:
 
         def on_press(key):
             try:
-                if key.char == 'a':
+                if key.char == 's':
                     commands[0] = 0.0
                 elif key.char == 'w':
                     commands[0] = 0.2
                 elif key.char == 'q':
                     commands[0] = 0.4
-                elif key.char == 's':
+                elif key.char == 'b':
                     commands[0] = -0.2
                 elif key.char == 'v':
                     commands[0] = -0.4
 
-                # if key.char == 'a':
-                #     commands[1] = -0.2
-                # elif key.char == 'd':
-                #     commands[1] = 0.2
+                if key.char == 'a':
+                    commands[1] = -0.2
+                elif key.char == 'd':
+                    commands[1] = 0.2
             except AttributeError:
                 # 处理特殊键，这里暂不处理
                 pass
@@ -278,15 +279,14 @@ class DemoNohlaRLWalk:
             # commands[1] = 0. * self.cfg.obs_scale.lin_vel
             commands[2] = 0. * self.cfg.obs_scale.ang_vel
 
-            joint_offset_position = joint_measured_position_urdf[0:12] - self.joint_default_position[0:12]
-
-            vel_norm = np.sqrt(commands[0]**2 + commands[1]**2 + commands[2]**2)
-            if vel_norm < 0.05:
+            if np.sqrt(commands[0]** + commands[1]** + commands[2]*2) <= 0.05:
                 stand_flag = 0
             else:
                 stand_flag = 1
-            right_leg_phase = math.sin(2 * math.pi * self.count_lowlevel * stand_flag * self.cfg.dt / self.cfg.cycle_time)
-            left_leg_phase = math.cos(2 * math.pi * self.count_lowlevel * stand_flag * self.cfg.dt / self.cfg.cycle_time)
+
+            joint_offset_position = joint_measured_position_urdf[0:12] - self.joint_default_position[0:12]
+            right_leg_phase = math.sin(2 * math.pi * stand_flag * self.count_lowlevel * self.cfg.dt / self.cfg.cycle_time)
+            left_leg_phase = math.cos(2 * math.pi * stand_flag * self.count_lowlevel * self.cfg.dt / self.cfg.cycle_time)
 
             obs = np.zeros(self.cfg.n_proprio, dtype=np.float32)
             obs[0] = right_leg_phase
@@ -294,17 +294,20 @@ class DemoNohlaRLWalk:
             obs[2] = commands[0]
             obs[3] = commands[1]
             obs[4] = commands[2]
-            obs[5:8] = imu_angular_velocity * self.cfg.obs_scale.ang_vel
-            obs[8:10] = imu_euler_ang[:2] / 20.0
-            obs[10:22] = joint_offset_position[0:12] * self.cfg.obs_scale.dof_pos
-            obs[22:34] = joint_measured_velocity_urdf[0:12] * self.cfg.obs_scale.dof_vel
-            obs[34:44] = self.last_action
+            obs[5:17] = joint_offset_position[0:12] * self.cfg.obs_scale.dof_pos
+            obs[17:29] = joint_measured_velocity_urdf[0:12] * self.cfg.obs_scale.dof_vel
+            obs[29:39] = self.last_action
+            obs[39:42] = imu_angular_velocity * self.cfg.obs_scale.ang_vel
+            obs[42:44] = imu_euler_ang[:2] * self.cfg.obs_scale.quat / 10.0
+
             print("x_vel",commands[0])
-            # print("joint_offset_position[0:12]", joint_offset_position[0:12])
-            obs_hist = np.array(self.proprio_history_buf).flatten()
-            self.proprio_history_buf.append(obs)
-            obs_buf = np.concatenate([obs,self.priv_latent,obs_hist],dtype=np.float32)
-            obs_buf = obs_buf.reshape(1,516)
+            self.hist_obs.append(obs)
+            self.hist_obs.popleft()
+            obs_hist = np.array(self.hist_obs).flatten().astype(np.float32)
+            print("1",obs_hist.dtype)
+            obs_buf = obs_hist.reshape(1,2904)
+            print("dtype of reshape his_obs",obs_buf.dtype)
+
             input_name = self.sess.get_inputs()[0].name
 
             raw_actions = self.sess.run(None, {input_name: obs_buf})[0][0]
@@ -346,11 +349,11 @@ class DemoNohlaRLWalk:
             duration_time = end_time - start_time
             # print("policy_time",duration_time)
             self.count_lowlevel += 1
-            if duration_time > 0.01:
+            if duration_time > 0.02:
                 # print("policy timeout")
                 continue
             else:
-                time.sleep(0.01 - duration_time)
+                time.sleep(0.02 - duration_time)
 
 
 

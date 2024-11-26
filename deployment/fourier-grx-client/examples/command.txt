@@ -1,0 +1,6 @@
+conda activate grx
+grx run ../config/config_GR1_T1.yaml --namespace=gr/1
+python roa_stand.py
+python explicit_deploy.py
+
+
